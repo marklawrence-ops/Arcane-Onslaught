@@ -1,0 +1,25 @@
+package com.arcane.onslaught.entities.components;
+
+import com.badlogic.ashley.core.Component;
+
+public class HealthComponent implements Component {
+    public float currentHealth;
+    public float maxHealth;
+
+    public HealthComponent(float maxHealth) {
+        this.maxHealth = maxHealth;
+        this.currentHealth = maxHealth;
+    }
+
+    public boolean isAlive() {
+        return currentHealth > 0;
+    }
+
+    public void damage(float amount) {
+        currentHealth = Math.max(0, currentHealth - amount);
+    }
+
+    public void heal(float amount) {
+        currentHealth = Math.min(maxHealth, currentHealth + amount);
+    }
+}
