@@ -2,35 +2,28 @@ package com.arcane.onslaught.spells;
 
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.arcane.onslaught.entities.components.*;
-import com.arcane.onslaught.entities.components.PositionComponent;
-import com.arcane.onslaught.entities.components.ProjectileComponent;
-import com.arcane.onslaught.entities.components.VelocityComponent;
-import com.arcane.onslaught.entities.components.VisualComponent;
-
-// ============================================
-// ARCANE MISSILES - 3 weak projectiles
-// ============================================
+import com.arcane.onslaught.upgrades.PlayerBuild;
+import com.arcane.onslaught.upgrades.UpgradeHelper;
+import com.arcane.onslaught.utils.TextureManager; // Import
 
 public class ArcaneMissilesSpell extends Spell {
     private float projectileSpeed = 320f;
-    private float projectileSize = 10f;
+    private float projectileSize = 14f;
     private int missileCount = 3;
     private int pierceCount = 2;
 
     public ArcaneMissilesSpell() {
-        super("Arcane Missiles", 2.0f, 6f); // 6 damage per missile = 18 total
+        super("Arcane Missiles", 2.0f, 8f);
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos) {
+    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
 
-        // Fire missiles in a spread pattern
         for (int i = 0; i < missileCount; i++) {
-            float angleOffset = (i - 1) * 15f; // -15, 0, +15 degrees
+            float angleOffset = (i - 1) * 15f;
             Vector2 direction = baseDirection.cpy().rotateDeg(angleOffset);
 
             Entity projectile = new Entity();
@@ -40,12 +33,16 @@ public class ArcaneMissilesSpell extends Spell {
             vel.velocity.set(direction).scl(projectileSpeed);
             projectile.add(vel);
 
-            projectile.add(new VisualComponent(projectileSize, projectileSize, Color.PURPLE));
+            // --- FIX: Use Texture ---
+            // Re-using "magic_bolt" since we don't have "arcane_missile" loaded yet
+            projectile.add(new VisualComponent(projectileSize, projectileSize,
+                TextureManager.getInstance().getTexture("arcane_missile")));
+
             projectile.add(new ProjectileComponent(damage, 5f, "arcane_missile"));
 
-            // PIERCE EFFECT
             projectile.add(new PierceComponent(pierceCount));
 
+            UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
             engine.addEntity(projectile);
         }
     }

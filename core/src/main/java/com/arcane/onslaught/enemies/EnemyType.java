@@ -3,8 +3,10 @@ package com.arcane.onslaught.enemies;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.arcane.onslaught.entities.components.*;
+import com.arcane.onslaught.utils.TextureManager;
 
 /**
  * Base class for different enemy types
@@ -16,6 +18,7 @@ public abstract class EnemyType {
     protected float size;
     protected float xpDrop;
     protected Color color;
+    protected String textureKey; // NEW: Key for texture lookup
 
     public EnemyType(String name, float health, float speed, float size, float xpDrop, Color color) {
         this.name = name;
@@ -24,6 +27,7 @@ public abstract class EnemyType {
         this.size = size;
         this.xpDrop = xpDrop;
         this.color = color;
+        this.textureKey = name.toLowerCase(); // Default: use lowercase name as texture key
     }
 
     public Entity spawn(Engine engine, Vector2 position) {
@@ -31,7 +35,16 @@ public abstract class EnemyType {
 
         enemy.add(new PositionComponent(position.x, position.y));
         enemy.add(new VelocityComponent(speed));
-        enemy.add(new VisualComponent(size, size, color));
+
+        // NEW: Try to use sprite, fallback to colored square
+        TextureManager tm = TextureManager.getInstance();
+        if (tm.hasTexture(textureKey)) {
+            Texture texture = tm.getTexture(textureKey);
+            enemy.add(new VisualComponent(size * 2f, size * 2f, texture, color));
+        } else {
+            enemy.add(new VisualComponent(size, size, color));
+        }
+
         enemy.add(new HealthComponent(health));
 
         EnemyComponent ec = new EnemyComponent();
@@ -66,138 +79,108 @@ public abstract class EnemyType {
     public String getName() { return name; }
 }
 
-// ============================================
-// BASIC ZOMBIE - Slow, tanky
-// ============================================
+// All your enemy classes stay the same, they'll automatically get sprites!
 
 class ZombieEnemy extends EnemyType {
     public ZombieEnemy() {
         super(
             "Zombie",
-            50f,    // High health
-            60f,    // Slow
-            28f,    // Medium size
-            5f,     // Standard XP
-            new Color(0.4f, 0.8f, 0.3f, 1f) // Greenish
+            50f,
+            60f,
+            28f,
+            5f,
+            new Color(0.4f, 0.8f, 0.3f, 1f)
         );
     }
 }
-
-// ============================================
-// IMP - Fast, weak
-// ============================================
 
 class ImpEnemy extends EnemyType {
     public ImpEnemy() {
         super(
             "Imp",
-            15f,    // Low health
-            140f,   // Very fast
-            18f,    // Small
-            10f,     // Low XP
-            new Color(1f, 0.3f, 0.3f, 1f) // Bright red
+            15f,
+            140f,
+            18f,
+            10f,
+            new Color(1f, 0.3f, 0.3f, 1f)
         );
     }
 }
-
-// ============================================
-// TANK - Very slow, very tanky
-// ============================================
 
 class TankEnemy extends EnemyType {
     public TankEnemy() {
         super(
             "Tank",
-            120f,   // Very high health
-            40f,    // Very slow
-            40f,    // Large
-            30f,    // High XP
-            new Color(0.5f, 0.5f, 0.5f, 1f) // Gray
+            120f,
+            40f,
+            40f,
+            30f,
+            new Color(0.5f, 0.5f, 0.5f, 1f)
         );
     }
 }
-
-// ============================================
-// RUNNER - Medium speed, medium health
-// ============================================
 
 class RunnerEnemy extends EnemyType {
     public RunnerEnemy() {
         super(
             "Runner",
-            30f,    // Medium health
-            100f,   // Fast
-            24f,    // Medium size
-            20f,     // Medium XP
-            new Color(1f, 0.7f, 0.2f, 1f) // Orange
+            30f,
+            100f,
+            24f,
+            20f,
+            new Color(1f, 0.7f, 0.2f, 1f)
         );
     }
 }
-
-// ============================================
-// SWARM - Tiny, weak, spawns in groups
-// ============================================
 
 class SwarmEnemy extends EnemyType {
     public SwarmEnemy() {
         super(
             "Swarm",
-            8f,     // Very low health
-            110f,   // Fast
-            14f,    // Tiny
-            5f,     // Low XP
-            new Color(1f, 1f, 0.3f, 1f) // Yellow
+            8f,
+            110f,
+            14f,
+            5f,
+            new Color(1f, 1f, 0.3f, 1f)
         );
     }
 }
-
-// ============================================
-// BRUTE - Strong and moderately fast
-// ============================================
 
 class BruteEnemy extends EnemyType {
     public BruteEnemy() {
         super(
             "Brute",
-            80f,    // High health
-            70f,    // Medium-slow
-            36f,    // Large
-            18f,    // Good XP
-            new Color(0.8f, 0.2f, 0.2f, 1f) // Dark red
+            80f,
+            70f,
+            36f,
+            18f,
+            new Color(0.8f, 0.2f, 0.2f, 1f)
         );
     }
 }
-
-// ============================================
-// GHOST - Fast, phases through others
-// ============================================
 
 class GhostEnemy extends EnemyType {
     public GhostEnemy() {
         super(
             "Ghost",
-            25f,    // Low-medium health
-            120f,   // Very fast
-            22f,    // Small-medium
-            15f,     // Medium XP
-            new Color(0.6f, 0.6f, 1f, 0.7f) // Transparent blue
+            25f,
+            120f,
+            22f,
+            15f,
+            new Color(0.6f, 0.6f, 1f, 0.7f)
         );
     }
 }
-
-// ============================================
-// ELITE - Rare, powerful
-// ============================================
 
 class EliteEnemy extends EnemyType {
     public EliteEnemy() {
         super(
             "Elite",
-            150f,   // Very high health
-            80f,    // Medium speed
-            44f,    // Very large
-            50f,    // Lots of XP
-            new Color(1f, 0.2f, 1f, 1f) // Magenta/Purple
+            150f,
+            80f,
+            44f,
+            50f,
+            new Color(1f, 0.2f, 1f, 1f)
         );
     }
 }

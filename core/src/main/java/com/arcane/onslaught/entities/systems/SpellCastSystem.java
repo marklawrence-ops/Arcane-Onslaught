@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.arcane.onslaught.entities.components.*;
 import com.arcane.onslaught.spells.Spell;
 import com.arcane.onslaught.spells.SpellManager;
+import com.arcane.onslaught.upgrades.PlayerBuild;
 
 /**
  * Handles automatic spell casting with multiple spells
@@ -13,10 +14,12 @@ import com.arcane.onslaught.spells.SpellManager;
 public class SpellCastSystem extends IteratingSystem {
     private ComponentMapper<PositionComponent> pm = ComponentMapper.getFor(PositionComponent.class);
     private SpellManager spellManager;
+    private PlayerBuild playerBuild;
 
-    public SpellCastSystem(SpellManager spellManager) {
+    public SpellCastSystem(SpellManager spellManager, PlayerBuild playerBuild) {
         super(Family.all(PlayerComponent.class, PositionComponent.class).get());
         this.spellManager = spellManager;
+        this.playerBuild = playerBuild;
     }
 
     @Override
@@ -41,7 +44,7 @@ public class SpellCastSystem extends IteratingSystem {
             // Cast all ready spells
             for (Spell spell : spellManager.getActiveSpells()) {
                 if (spell.canCast()) {
-                    spell.cast(getEngine(), pos.position, enemyPos.position);
+                    spell.cast(getEngine(), pos.position, enemyPos.position, playerBuild);
                     spell.resetCooldown();
                 }
             }

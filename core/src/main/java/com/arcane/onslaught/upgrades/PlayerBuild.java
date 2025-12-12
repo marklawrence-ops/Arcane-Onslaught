@@ -42,6 +42,11 @@ public class PlayerBuild {
         return tags.contains(tag);
     }
 
+    // --- FIX: ADDED REMOVE METHOD ---
+    public void removeTag(String tag) {
+        tags.remove(tag);
+    }
+
     public List<Upgrade> getUpgrades() {
         return upgrades;
     }

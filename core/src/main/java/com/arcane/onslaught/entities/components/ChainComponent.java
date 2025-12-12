@@ -11,8 +11,10 @@ public class ChainComponent implements Component {
     public float chainRange;
     public float chainDamage;
     public java.util.Set<com.badlogic.ashley.core.Entity> hitEntities;
+    public int maxChains;
 
     public ChainComponent(int chains, float range, float damage) {
+        this.maxChains = chains;
         this.remainingChains = chains;
         this.chainRange = range;
         this.chainDamage = damage;

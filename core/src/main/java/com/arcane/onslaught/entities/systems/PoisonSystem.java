@@ -2,15 +2,13 @@ package com.arcane.onslaught.entities.systems;
 
 import com.badlogic.ashley.core.*;
 import com.badlogic.ashley.systems.IteratingSystem;
-import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.graphics.Color;
 import com.arcane.onslaught.entities.components.*;
 
-/**
- * Handles poison damage over time on enemies
- */
 public class PoisonSystem extends IteratingSystem {
-    private ComponentMapper<PoisonedComponent> poisonMapper = ComponentMapper.getFor(PoisonedComponent.class);
-    private ComponentMapper<HealthComponent> healthMapper = ComponentMapper.getFor(HealthComponent.class);
+    private ComponentMapper<PoisonedComponent> pm = ComponentMapper.getFor(PoisonedComponent.class);
+    private ComponentMapper<HealthComponent> hm = ComponentMapper.getFor(HealthComponent.class);
+    private ComponentMapper<PositionComponent> posMapper = ComponentMapper.getFor(PositionComponent.class);
 
     public PoisonSystem() {
         super(Family.all(PoisonedComponent.class, HealthComponent.class).get());
@@ -18,22 +16,43 @@ public class PoisonSystem extends IteratingSystem {
 
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
-        PoisonedComponent poison = poisonMapper.get(entity);
-        HealthComponent health = healthMapper.get(entity);
+        PoisonedComponent poison = pm.get(entity);
+        HealthComponent health = hm.get(entity);
 
+        // Tick down duration
         poison.timeRemaining -= deltaTime;
         poison.tickTimer += deltaTime;
 
-        // Damage every 0.5 seconds
+        // Apply damage every 0.5 seconds (prevents flooding the screen with numbers)
         if (poison.tickTimer >= 0.5f) {
-            float damage = poison.damagePerSecond * 0.5f;
-            health.damage(damage);
-            poison.tickTimer -= 0.5f;
+            float damageToDeal = poison.damagePerSecond * 0.5f;
+            health.damage(damageToDeal);
+            poison.tickTimer = 0;
+
+            // Visual feedback (Tiny green numbers)
+            PositionComponent pos = posMapper.get(entity);
+            if (pos != null) {
+                spawnDamageNumber(pos.position.x, pos.position.y, damageToDeal);
+            }
         }
 
-        // Remove poison when expired
+        // Remove poison when time is up
         if (poison.timeRemaining <= 0) {
             entity.remove(PoisonedComponent.class);
         }
+    }
+
+    private void spawnDamageNumber(float x, float y, float amount) {
+        Entity indicator = new Entity();
+        indicator.add(new PositionComponent(x, y + 10)); // Slightly offset
+        indicator.add(new DamageIndicatorComponent(amount, false));
+        // Force green color for poison
+        indicator.getComponent(DamageIndicatorComponent.class).color = Color.CHARTREUSE;
+
+        VelocityComponent vel = new VelocityComponent(0);
+        vel.velocity.set(0, 30f); // Float up slowly
+        indicator.add(vel);
+
+        getEngine().addEntity(indicator);
     }
 }

@@ -17,18 +17,42 @@ public class UpgradePool {
     }
 
     private void registerAllUpgrades() {
+
+        // Spells
+        allUpgrades.add(new UnlockFireballUpgrade());
+        allUpgrades.add(new UnlockArcaneMissilesUpgrade());
+        allUpgrades.add(new UnlockIceShardUpgrade());
+        allUpgrades.add(new UnlockLightningBoltUpgrade());
+        allUpgrades.add(new UnlockPoisonDartUpgrade());
+
         // Passive - Offense
         allUpgrades.add(new DamageUpgrade());
         allUpgrades.add(new AttackSpeedUpgrade());
         allUpgrades.add(new CriticalHitUpgrade());
+        allUpgrades.add(new MultiShotUpgrade());
+        allUpgrades.add(new PiercingUpgrade());
+        allUpgrades.add(new ProjectileSizeUpgrade());
+        allUpgrades.add(new ProjectileSpeedUpgrade());
+        allUpgrades.add(new DamageOverTimeUpgrade());
+        allUpgrades.add(new ExplosiveFinishUpgrade());
 
         // Passive - Defense
         allUpgrades.add(new MaxHealthUpgrade());
-        //allUpgrades.add(new RegenerationUpgrade());
+        allUpgrades.add(new MaxHealthUpgrade2());
+        allUpgrades.add(new RegenerationUpgrade());
+        allUpgrades.add(new LifeStealUpgrade());
+        allUpgrades.add(new HealthDropUpgrade());
+        allUpgrades.add(new ArmorUpgrade());
+        allUpgrades.add(new DodgeUpgrade());
+        allUpgrades.add(new ReviveUpgrade());
 
         // Passive - Utility
         allUpgrades.add(new SpeedUpgrade());
+        allUpgrades.add(new SpeedUpgrade2());
         allUpgrades.add(new PickupRangeUpgrade());
+        allUpgrades.add(new PickupRangeUpgrade2());
+        allUpgrades.add(new ExperienceGainUpgrade());
+        allUpgrades.add(new LuckUpgrade());
 
         // Spell-Specific
         allUpgrades.add(new FireballSizeUpgrade());
@@ -41,6 +65,9 @@ public class UpgradePool {
         allUpgrades.add(new FireAndIceSynergy());
         allUpgrades.add(new LightningPoisonSynergy());
         allUpgrades.add(new ExplosiveChainSynergy());
+        allUpgrades.add(new PoisonExplosionSynergy());
+        allUpgrades.add(new FrozenExplosionSynergy());
+        allUpgrades.add(new AllElementsSynergy());
     }
 
     /**
