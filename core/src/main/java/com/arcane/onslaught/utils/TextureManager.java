@@ -43,8 +43,16 @@ public class TextureManager {
     public void loadTextures() {
         System.out.println("Loading textures...");
 
-        // Background
+        // Background & Other Assets
         loadTexture("background", "sprites/background.png");
+        loadTexture("magic_circle", "sprites/magic_circle.png");
+        loadTexture("teleport_beam", "sprites/teleport_beam.png");
+        loadTexture("effect_revive", "sprites/effect_revive.png");
+        loadTexture("effect_heal", "sprites/effect_heal.png");
+        loadTexture("effect_poison", "sprites/effect_poison.png");
+        loadTexture("vfx_steam", "sprites/vfx_steam.png");
+        loadTexture("vfx_ice_shatter", "sprites/vfx_ice_shatter.png");
+        loadTexture("vfx_muzzle_flash", "sprites/vfx_muzzle_flash.png");
 
         // Player
         loadTexture("player", "sprites/player/player.png");

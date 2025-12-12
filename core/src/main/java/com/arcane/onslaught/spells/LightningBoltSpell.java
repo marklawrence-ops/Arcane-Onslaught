@@ -3,7 +3,7 @@ package com.arcane.onslaught.spells;
 import com.arcane.onslaught.entities.components.*;
 import com.arcane.onslaught.upgrades.PlayerBuild;
 import com.arcane.onslaught.upgrades.UpgradeHelper;
-import com.arcane.onslaught.utils.TextureManager; // Import
+import com.arcane.onslaught.utils.TextureManager;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.math.Vector2;
@@ -20,25 +20,34 @@ public class LightningBoltSpell extends Spell {
 
     @Override
     public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
-        Entity projectile = new Entity();
+        Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
+        if (baseDirection.isZero()) baseDirection.set(1, 0);
 
-        Vector2 direction = new Vector2(targetPos).sub(playerPos).nor();
+        int count = UpgradeHelper.getProjectileCount(playerBuild);
+        float spread = 15f;
 
-        projectile.add(new PositionComponent(playerPos.x, playerPos.y));
+        for (int i = 0; i < count; i++) {
+            float angleOffset = spread * (i - (count - 1) / 2f);
+            Vector2 direction = baseDirection.cpy().rotateDeg(angleOffset);
 
-        VelocityComponent vel = new VelocityComponent(projectileSpeed);
-        vel.velocity.set(direction).scl(projectileSpeed);
-        projectile.add(vel);
+            Entity projectile = new Entity();
+            projectile.add(new PositionComponent(playerPos.x, playerPos.y));
 
-        // --- FIX: Use Texture ---
-        projectile.add(new VisualComponent(projectileSize, projectileSize,
-            TextureManager.getInstance().getTexture("lightning")));
+            VelocityComponent vel = new VelocityComponent(projectileSpeed);
+            vel.velocity.set(direction).scl(projectileSpeed);
+            projectile.add(vel);
 
-        projectile.add(new ProjectileComponent(damage, 3f, "lightning"));
+            projectile.add(new VisualComponent(projectileSize, projectileSize,
+                TextureManager.getInstance().getTexture("lightning")));
 
-        projectile.add(new ChainComponent(chainCount, chainRange, damage * 0.7f));
+            // Note: Spell name string must match what UpgradeHelper expects ("Lightning Bolt")
+            projectile.add(new ProjectileComponent(damage, 3f, "lightning"));
 
-        UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
-        engine.addEntity(projectile);
+            // Chain logic
+            projectile.add(new ChainComponent(chainCount, chainRange, damage * 0.7f));
+
+            UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
+            engine.addEntity(projectile);
+        }
     }
 }

@@ -3,7 +3,7 @@ package com.arcane.onslaught.spells;
 import com.arcane.onslaught.entities.components.*;
 import com.arcane.onslaught.upgrades.PlayerBuild;
 import com.arcane.onslaught.upgrades.UpgradeHelper;
-import com.arcane.onslaught.utils.TextureManager; // Import
+import com.arcane.onslaught.utils.TextureManager;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.math.Vector2;
@@ -18,23 +18,30 @@ public class MagicBoltSpell extends Spell {
 
     @Override
     public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
-        Entity projectile = new Entity();
+        Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
+        if (baseDirection.isZero()) baseDirection.set(1, 0);
 
-        Vector2 direction = new Vector2(targetPos).sub(playerPos).nor();
+        int count = UpgradeHelper.getProjectileCount(playerBuild);
+        float spread = 10f;
 
-        projectile.add(new PositionComponent(playerPos.x, playerPos.y));
+        for (int i = 0; i < count; i++) {
+            float angleOffset = spread * (i - (count - 1) / 2f);
+            Vector2 direction = baseDirection.cpy().rotateDeg(angleOffset);
 
-        VelocityComponent vel = new VelocityComponent(projectileSpeed);
-        vel.velocity.set(direction).scl(projectileSpeed);
-        projectile.add(vel);
+            Entity projectile = new Entity();
+            projectile.add(new PositionComponent(playerPos.x, playerPos.y));
 
-        // --- FIX: Use Texture ---
-        projectile.add(new VisualComponent(projectileSize, projectileSize,
-            TextureManager.getInstance().getTexture("magic_bolt")));
+            VelocityComponent vel = new VelocityComponent(projectileSpeed);
+            vel.velocity.set(direction).scl(projectileSpeed);
+            projectile.add(vel);
 
-        projectile.add(new ProjectileComponent(damage, 5f, "magic_bolt"));
+            projectile.add(new VisualComponent(projectileSize, projectileSize,
+                TextureManager.getInstance().getTexture("magic_bolt")));
 
-        UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
-        engine.addEntity(projectile);
+            projectile.add(new ProjectileComponent(damage, 5f, "magic_bolt"));
+
+            UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
+            engine.addEntity(projectile);
+        }
     }
 }

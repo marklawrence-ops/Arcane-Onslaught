@@ -25,16 +25,9 @@ public class Constants {
     public static final float ENEMY_SIZE = 24f;
     public static final float ENEMY_SPAWN_INTERVAL = 2f; // seconds
 
-    // Spell settings
-    public static final float MAGIC_BOLT_COOLDOWN = 1.5f; // seconds
-    public static final float MAGIC_BOLT_SPEED = 300f;
-    public static final float MAGIC_BOLT_DAMAGE = 10f;
-    public static final float MAGIC_BOLT_SIZE = 16f;
-
     // XP settings
     public static final float XP_ORB_SIZE = 12f;
     public static final float XP_ORB_COLLECTION_RANGE = 50f;
-    public static final float XP_PER_ENEMY = 20f;
     public static final float XP_TO_LEVEL_BASE = 10f;
 
     // Physics

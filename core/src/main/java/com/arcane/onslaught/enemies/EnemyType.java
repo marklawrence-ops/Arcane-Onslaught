@@ -184,3 +184,16 @@ class EliteEnemy extends EnemyType {
         );
     }
 }
+
+class SlimeEnemy extends EnemyType {
+    public SlimeEnemy() {
+        super(
+            "Slime",
+            40f,  // Health (Average)
+            55f,  // Speed (Slower than zombies)
+            24f,  // Size
+            8f,   // XP Drop
+            new Color(0.2f, 0.9f, 0.6f, 1f) // Bright Slime Green
+        );
+    }
+}
