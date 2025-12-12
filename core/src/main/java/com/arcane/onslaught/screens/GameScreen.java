@@ -60,6 +60,7 @@ public class GameScreen implements Screen {
         if (engine != null) return;
 
         TextureManager.getInstance().loadTextures();
+        SoundManager.getInstance().loadSounds();
 
         camera = new OrthographicCamera();
         viewport = new FitViewport(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, camera);
@@ -149,6 +150,7 @@ public class GameScreen implements Screen {
             }
         });
         em.subscribe(LevelUpEvent.class, event -> {
+            SoundManager.getInstance().play("levelup");
             for (com.arcane.onslaught.spells.Spell spell : spellManager.getActiveSpells()) {
                 spell.setDamage(spell.getDamage() * 1.02f);
                 float newCooldown = spell.getCooldown() * 0.97f;
@@ -339,6 +341,7 @@ public class GameScreen implements Screen {
         mainBatch.dispose();
         damageBatch.dispose();
         TextureManager.getInstance().dispose();
+        SoundManager.getInstance().dispose();
         if (engine.getSystem(UISystem.class) != null) engine.getSystem(UISystem.class).dispose();
         if (engine.getSystem(DamageIndicatorSystem.class) != null) engine.getSystem(DamageIndicatorSystem.class).dispose();
         EventManager.getInstance().clear();

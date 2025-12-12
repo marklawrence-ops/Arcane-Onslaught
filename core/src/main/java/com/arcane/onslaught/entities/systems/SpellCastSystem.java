@@ -1,5 +1,6 @@
 package com.arcane.onslaught.entities.systems;
 
+import com.arcane.onslaught.utils.SoundManager;
 import com.badlogic.ashley.core.*;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
@@ -44,6 +45,7 @@ public class SpellCastSystem extends IteratingSystem {
             // Cast all ready spells
             for (Spell spell : spellManager.getActiveSpells()) {
                 if (spell.canCast()) {
+                    SoundManager.getInstance().play("cast", 1.0f + (float)Math.random() * 0.2f);
                     spell.cast(getEngine(), pos.position, enemyPos.position, playerBuild);
                     spell.resetCooldown();
                 }

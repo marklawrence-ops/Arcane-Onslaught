@@ -179,6 +179,7 @@ public class CollisionSystem extends EntitySystem {
         }
 
         explosionVisual.add(new LifetimeComponent(0.25f));
+        SoundManager.getInstance().play("explosion", 0.8f); // Lower pitch for boom
         getEngine().addEntity(explosionVisual);
 
         if (playerBuild.hasTag("toxic_cloud")) {
@@ -265,6 +266,7 @@ public class CollisionSystem extends EntitySystem {
             finalDamage *= crit.critMultiplier;
         }
         enemyHealth.damage(finalDamage);
+        SoundManager.getInstance().play("hit", 1.2f); // Higher pitch for hits
         spawnDamageIndicator(enemyPos.position, finalDamage, isCritical);
         applySpellEffects(proj, enemy);
         ExplosiveComponent explosive = explosiveMapper.get(proj);
@@ -305,6 +307,7 @@ public class CollisionSystem extends EntitySystem {
             XPOrbComponent orbComp = xpMapper.get(orb);
             if (playerPos.position.dst(orbPos.position) < pickupRange) {
                 playerComp.xp += orbComp.xpValue * xpMultiplier;
+                SoundManager.getInstance().play("pickup", 1.0f);
                 if (playerComp.xp >= playerComp.xpToNextLevel) levelUp(player, playerComp, playerHealth, playerVel);
                 queueRemoval(orb);
             }
