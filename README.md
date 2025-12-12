@@ -5,8 +5,8 @@ A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://git
 Arcane Onslaught is a 2D top-down auto-attack survival game where the player controls a mage who battles endless waves of monsters in an open arena. The mage automatically casts spells at intervals, and the player must dodge enemies while collecting experience orbs to unlock new spells and upgrade abilities. The goal is to survive as long as possible and create powerful spell synergies through upgrades.
 
 # External Art Assets Used
-Spells - 16x16 Simple Fantasy RPG FX by Emcee Flesher (https://opengameart.org/users/emcee-flesher)
-Enemies - 32rogues by Seth (https://sethbb.itch.io/32rogues)
+- Spells - 16x16 Simple Fantasy RPG FX by Emcee Flesher (https://opengameart.org/users/emcee-flesher)
+- Enemies - 32rogues by Seth (https://sethbb.itch.io/32rogues)
 
 ## Platforms
 
