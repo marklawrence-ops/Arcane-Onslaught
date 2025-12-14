@@ -2,6 +2,7 @@ package com.arcane.onslaught.entities.systems;
 
 import com.arcane.onslaught.upgrades.*;
 import com.badlogic.ashley.core.*;
+import com.badlogic.ashley.utils.ImmutableArray; // Required for indexed loops
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
@@ -115,9 +116,9 @@ public class CollisionSystem extends EntitySystem {
     private void findPlayer() {
         player = null;
         Family playerFamily = Family.all(PlayerComponent.class, PositionComponent.class).get();
-        for (Entity e : getEngine().getEntitiesFor(playerFamily)) {
-            player = e;
-            break;
+        ImmutableArray<Entity> players = getEngine().getEntitiesFor(playerFamily);
+        if (players.size() > 0) {
+            player = players.get(0);
         }
     }
 
@@ -129,11 +130,14 @@ public class CollisionSystem extends EntitySystem {
         if (explosionQueue.isEmpty()) return;
 
         Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
 
         for (ExplosionRequest req : explosionQueue) {
             spawnExplosionVisual(req.position, req.radius);
 
-            for (Entity enemy : getEngine().getEntitiesFor(enemyFamily)) {
+            // Using indexed loop for safety
+            for (int i = 0; i < enemies.size(); ++i) {
+                Entity enemy = enemies.get(i);
                 if (entitiesToRemove.contains(enemy, true)) continue;
 
                 PositionComponent enemyPos = posMapper.get(enemy);
@@ -148,16 +152,13 @@ public class CollisionSystem extends EntitySystem {
                     float damageMultiplier = 0.3f + (0.7f * falloff);
                     float finalDamage = req.damage * damageMultiplier;
 
-                    // --- FIXED: SYNERGY VFX (SHATTER) ---
                     if (playerBuild.hasTag("shatter")) {
                         SlowedComponent slowed = slowedMapper.get(enemy);
-                        // Check slowAmount (Corrected Field)
                         if (slowed != null && slowed.slowAmount > 0.5f) {
                             spawnVisualEffect(enemyPos.position, "vfx_ice_shatter", 60f, 0.4f);
                             finalDamage *= 2.0f;
                         }
                     }
-                    // ------------------------------------
 
                     enemyHealth.damage(finalDamage);
                     spawnDamageIndicator(enemyPos.position, finalDamage, false);
@@ -166,46 +167,64 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
-    private void spawnExplosionVisual(Vector2 position, float radius) {
-        Entity explosionVisual = new Entity();
-        explosionVisual.add(new PositionComponent(position.x, position.y));
-        float size = radius * 2.5f;
+    private void checkProjectileEnemyCollisions() {
+        Family projFamily = Family.all(ProjectileComponent.class, PositionComponent.class).get();
+        Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
 
-        TextureManager tm = TextureManager.getInstance();
-        if (tm.hasTexture("fireball")) {
-            explosionVisual.add(new VisualComponent(size, size, tm.getTexture("fireball"), new Color(1f, 0.4f, 0.1f, 0.6f)));
-        } else {
-            explosionVisual.add(new VisualComponent(size, size, Color.ORANGE));
-        }
+        ImmutableArray<Entity> projectiles = getEngine().getEntitiesFor(projFamily);
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
 
-        explosionVisual.add(new LifetimeComponent(0.25f));
-        SoundManager.getInstance().play("explosion", 0.8f); // Lower pitch for boom
-        getEngine().addEntity(explosionVisual);
+        // --- FIXED LOOP 1: Projectiles ---
+        for (int i = 0; i < projectiles.size(); ++i) {
+            Entity proj = projectiles.get(i);
+            if (entitiesToRemove.contains(proj, true)) continue;
 
-        if (playerBuild.hasTag("toxic_cloud")) {
-            spawnVisualEffect(position, "effect_poison", radius * 2.5f, 2.0f);
+            PositionComponent projPos = posMapper.get(proj);
+            ProjectileComponent projComp = projMapper.get(proj);
+            float projRadius = getEntityRadius(proj);
+
+            // --- FIXED LOOP 2: Enemies (Inner Loop) ---
+            for (int j = 0; j < enemies.size(); ++j) {
+                Entity enemy = enemies.get(j);
+                if (entitiesToRemove.contains(enemy, true)) continue;
+
+                HealthComponent enemyHealth = healthMapper.get(enemy);
+                if (!enemyHealth.isAlive()) continue;
+
+                PositionComponent enemyPos = posMapper.get(enemy);
+                float enemyRadius = getEntityRadius(enemy);
+
+                if (projPos.position.dst(enemyPos.position) < projRadius + enemyRadius) {
+                    handleHit(proj, enemy, projComp, projPos);
+
+                    PierceComponent pierce = pierceMapper.get(proj);
+                    if (pierce != null && pierce.remainingPierces > 0) {
+                        pierce.remainingPierces--;
+                    } else {
+                        queueRemoval(proj);
+                        break;
+                    }
+                }
+            }
         }
     }
 
+    // ... spawnVisualEffect, explodeAt, spawnExplosionVisual remain unchanged ...
     private void spawnVisualEffect(Vector2 position, String textureName, float size, float duration) {
         Entity effect = new Entity();
         effect.add(new PositionComponent(position.x, position.y));
-
         TextureManager tm = TextureManager.getInstance();
         if (tm.hasTexture(textureName)) {
             effect.add(new VisualComponent(size, size, tm.getTexture(textureName)));
         } else {
             effect.add(new VisualComponent(size, size, Color.WHITE));
         }
-
         effect.add(new LifetimeComponent(duration));
-
         if (textureName.equals("effect_heal") || textureName.equals("vfx_steam")) {
             VelocityComponent vel = new VelocityComponent(0);
             vel.velocity.set(0, 50f);
             effect.add(vel);
         }
-
         getEngine().addEntity(effect);
     }
 
@@ -213,27 +232,21 @@ public class CollisionSystem extends EntitySystem {
         queueExplosion(position, explosive);
     }
 
-    private void checkProjectileEnemyCollisions() {
-        Family projFamily = Family.all(ProjectileComponent.class, PositionComponent.class).get();
-        Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
-        for (Entity proj : getEngine().getEntitiesFor(projFamily)) {
-            if (entitiesToRemove.contains(proj, true)) continue;
-            PositionComponent projPos = posMapper.get(proj);
-            ProjectileComponent projComp = projMapper.get(proj);
-            float projRadius = getEntityRadius(proj);
-            for (Entity enemy : getEngine().getEntitiesFor(enemyFamily)) {
-                if (entitiesToRemove.contains(enemy, true)) continue;
-                HealthComponent enemyHealth = healthMapper.get(enemy);
-                if (!enemyHealth.isAlive()) continue;
-                PositionComponent enemyPos = posMapper.get(enemy);
-                float enemyRadius = getEntityRadius(enemy);
-                if (projPos.position.dst(enemyPos.position) < projRadius + enemyRadius) {
-                    handleHit(proj, enemy, projComp, projPos);
-                    PierceComponent pierce = pierceMapper.get(proj);
-                    if (pierce != null && pierce.remainingPierces > 0) { pierce.remainingPierces--; }
-                    else { queueRemoval(proj); break; }
-                }
-            }
+    private void spawnExplosionVisual(Vector2 position, float radius) {
+        Entity explosionVisual = new Entity();
+        explosionVisual.add(new PositionComponent(position.x, position.y));
+        float size = radius * 2.5f;
+        TextureManager tm = TextureManager.getInstance();
+        if (tm.hasTexture("fireball")) {
+            explosionVisual.add(new VisualComponent(size, size, tm.getTexture("fireball"), new Color(1f, 0.4f, 0.1f, 0.6f)));
+        } else {
+            explosionVisual.add(new VisualComponent(size, size, Color.ORANGE));
+        }
+        explosionVisual.add(new LifetimeComponent(0.25f));
+        SoundManager.getInstance().play("explosion", 0.8f);
+        getEngine().addEntity(explosionVisual);
+        if (playerBuild.hasTag("toxic_cloud")) {
+            spawnVisualEffect(position, "effect_poison", radius * 2.5f, 2.0f);
         }
     }
 
@@ -241,22 +254,17 @@ public class CollisionSystem extends EntitySystem {
         HealthComponent enemyHealth = healthMapper.get(enemy);
         PositionComponent enemyPos = posMapper.get(enemy);
 
-        // --- FIXED: SYNERGY CHECKS (Using spellType) ---
         ProjectileComponent pc = projMapper.get(proj);
         if (pc != null) {
-            // Thermal Shock
             if ("fireball".equals(pc.spellType) && playerBuild.hasTag("thermal_shock")) {
                 if (slowedMapper.get(enemy) != null) {
                     spawnVisualEffect(enemyPos.position, "vfx_steam", 50f, 0.6f);
                 }
             }
-            // Electrocution (Use "lightning" because SpellCastSystem usually sets it to this)
-            // Check your LightningBoltSpell.java to see what string it passes. Usually "lightning" or "lightning_bolt"
             if (pc.spellType.contains("lightning") && playerBuild.hasTag("electrocution")) {
                 spawnVisualEffect(enemyPos.position, "effect_poison", 40f, 0.4f);
             }
         }
-        // -----------------------------------------------
 
         boolean isCritical = false;
         float finalDamage = projComp.damage;
@@ -266,22 +274,33 @@ public class CollisionSystem extends EntitySystem {
             finalDamage *= crit.critMultiplier;
         }
         enemyHealth.damage(finalDamage);
-        SoundManager.getInstance().play("hit", 1.2f); // Higher pitch for hits
+        SoundManager.getInstance().play("hit", 1.2f);
         spawnDamageIndicator(enemyPos.position, finalDamage, isCritical);
         applySpellEffects(proj, enemy);
+
         ExplosiveComponent explosive = explosiveMapper.get(proj);
         if (explosive != null) { explodeAt(enemyPos.position, explosive); }
+
         ChainComponent chain = chainMapper.get(proj);
-        if (chain != null) { chain.hitEntities.add(enemy); chainToNearbyEnemy(proj, enemy); }
+        if (chain != null) {
+            chain.hitEntities.add(enemy);
+            chainToNearbyEnemy(proj, enemy);
+        }
     }
 
-    // ... (Collision Checks for Player, XP, Health - UNCHANGED) ...
+    // ... checkPlayerEnemyCollisions, checkPlayerXPCollisions, checkPlayerHealthCollisions, removeDeadEnemies ...
+    // These generally don't nest but safer to use indexed loops here too for consistency.
+
     private void checkPlayerEnemyCollisions() {
         PositionComponent playerPos = posMapper.get(player);
         HealthComponent playerHealth = healthMapper.get(player);
         float playerRadius = getEntityRadius(player);
+
         Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
-        for (Entity enemy : getEngine().getEntitiesFor(enemyFamily)) {
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
+
+        for (int i = 0; i < enemies.size(); ++i) {
+            Entity enemy = enemies.get(i);
             if (entitiesToRemove.contains(enemy, true)) continue;
             HealthComponent enemyHealth = healthMapper.get(enemy);
             if (!enemyHealth.isAlive()) continue;
@@ -300,8 +319,12 @@ public class CollisionSystem extends EntitySystem {
         VelocityComponent playerVel = velMapper.get(player);
         float pickupRange = Constants.XP_ORB_COLLECTION_RANGE * UpgradeHelper.getPickupRangeMultiplier(playerBuild);
         float xpMultiplier = UpgradeHelper.getXPMultiplier(playerBuild);
+
         Family xpFamily = Family.all(XPOrbComponent.class, PositionComponent.class).get();
-        for (Entity orb : getEngine().getEntitiesFor(xpFamily)) {
+        ImmutableArray<Entity> orbs = getEngine().getEntitiesFor(xpFamily);
+
+        for (int i = 0; i < orbs.size(); ++i) {
+            Entity orb = orbs.get(i);
             if (entitiesToRemove.contains(orb, true)) continue;
             PositionComponent orbPos = posMapper.get(orb);
             XPOrbComponent orbComp = xpMapper.get(orb);
@@ -318,7 +341,10 @@ public class CollisionSystem extends EntitySystem {
         PositionComponent playerPos = posMapper.get(player);
         HealthComponent playerHealth = healthMapper.get(player);
         Family healthFamily = Family.all(HealthOrbComponent.class, PositionComponent.class).get();
-        for (Entity orb : getEngine().getEntitiesFor(healthFamily)) {
+        ImmutableArray<Entity> orbs = getEngine().getEntitiesFor(healthFamily);
+
+        for (int i = 0; i < orbs.size(); ++i) {
+            Entity orb = orbs.get(i);
             if (entitiesToRemove.contains(orb, true)) continue;
             PositionComponent orbPos = posMapper.get(orb);
             HealthOrbComponent orbComp = healthOrbMapper.get(orb);
@@ -332,7 +358,10 @@ public class CollisionSystem extends EntitySystem {
 
     private void removeDeadEnemies() {
         Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
-        for (Entity enemy : getEngine().getEntitiesFor(enemyFamily)) {
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
+
+        for (int i = 0; i < enemies.size(); ++i) {
+            Entity enemy = enemies.get(i);
             if (entitiesToRemove.contains(enemy, true)) continue;
             HealthComponent health = healthMapper.get(enemy);
             if (!health.isAlive()) {
@@ -358,6 +387,7 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
+    // ... levelUp, spawnXPOrb, spawnHealthOrb, applySpellEffects (unchanged) ...
     private void levelUp(Entity player, PlayerComponent pc, HealthComponent health, VelocityComponent vel) {
         pc.level++;
         pc.xp -= pc.xpToNextLevel;
@@ -405,31 +435,43 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
+    // --- FIXED LOOP 3: Chain Logic (The Crash Cause) ---
     private void chainToNearbyEnemy(Entity sourceProjectile, Entity sourceEnemy) {
         ChainComponent chain = chainMapper.get(sourceProjectile);
         if (chain == null || chain.remainingChains <= 0) return;
+
         PositionComponent sourcePos = posMapper.get(sourceEnemy);
         Entity nearestEnemy = null;
         float minDist = Float.MAX_VALUE;
+
         Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
-        for (Entity enemy : getEngine().getEntitiesFor(enemyFamily)) {
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
+
+        for (int i = 0; i < enemies.size(); ++i) {
+            Entity enemy = enemies.get(i);
+
             if (enemy == sourceEnemy) continue;
             if (chain.hitEntities.contains(enemy)) continue;
             if (entitiesToRemove.contains(enemy, true)) continue;
+
             HealthComponent health = healthMapper.get(enemy);
             if (!health.isAlive()) continue;
+
             PositionComponent pos = posMapper.get(enemy);
             float distance = sourcePos.position.dst(pos.position);
+
             if (distance <= chain.chainRange && distance < minDist) {
                 minDist = distance;
                 nearestEnemy = enemy;
             }
         }
+
         if (nearestEnemy != null) {
             HealthComponent health = healthMapper.get(nearestEnemy);
             health.damage(chain.chainDamage);
             chain.hitEntities.add(nearestEnemy);
             chain.remainingChains--;
+
             PositionComponent targetPos = posMapper.get(nearestEnemy);
             spawnDamageIndicator(targetPos.position, chain.chainDamage, false);
         }
