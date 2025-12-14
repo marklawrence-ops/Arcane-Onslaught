@@ -9,7 +9,7 @@ import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.arcane.onslaught.enemies.EnemyFactory;
-import com.arcane.onslaught.enemies.EnemyFactory.SpawnPattern; // Import
+import com.arcane.onslaught.enemies.EnemyFactory.SpawnPattern;
 import com.arcane.onslaught.utils.Constants;
 
 public class EnemySpawnSystem extends EntitySystem {
@@ -19,10 +19,8 @@ public class EnemySpawnSystem extends EntitySystem {
     private float difficulty = 1.0f;
     private float spawnInterval;
 
-    // --- NEW: Pattern Management ---
     private float patternTimer = 0f;
-    private float patternInterval = 20.0f; // Special pattern every 20s
-    // -------------------------------
+    private float patternInterval = 20.0f;
 
     private int lastBossLevel = 0;
     private ComponentMapper<PlayerComponent> playerMapper = ComponentMapper.getFor(PlayerComponent.class);
@@ -36,22 +34,17 @@ public class EnemySpawnSystem extends EntitySystem {
     @Override
     public void update(float deltaTime) {
         gameTime += deltaTime;
-
-        if (isBossActive()) return;
-
         spawnTimer += deltaTime;
-        patternTimer += deltaTime; // Update pattern timer
+        patternTimer += deltaTime;
 
         updateDifficulty();
         checkBossSpawn();
 
-        // 1. Regular Spawns
         if (spawnTimer >= spawnInterval) {
             spawnTimer = 0;
             spawnEnemies();
         }
 
-        // 2. Special Patterns (Vampire Survivors Style)
         if (patternTimer >= patternInterval) {
             patternTimer = 0;
             triggerSpecialWave();
@@ -59,55 +52,16 @@ public class EnemySpawnSystem extends EntitySystem {
     }
 
     private void updateDifficulty() {
-        // --- UPDATED SCALING ---
-        // Early Game (0-5 mins): Linear scaling
         if (gameTime < 300) {
             difficulty = 1.0f + (gameTime / 60f) * 0.2f;
-        }
-        // Mid Game (5-10 mins): Steeper
-        else if (gameTime < 600) {
+        } else if (gameTime < 600) {
             difficulty = 2.0f + ((gameTime - 300) / 60f) * 0.5f;
-        }
-        // Late Game (10+ mins): Exponential "AFK Killer" scaling
-        else {
-            float lateGameTime = (gameTime - 600) / 60f; // Minutes past 10
+        } else {
+            float lateGameTime = (gameTime - 600) / 60f;
             difficulty = 4.5f * (float)Math.pow(1.15, lateGameTime);
         }
-
-        // Cap Spawn Rate
         spawnInterval = Constants.ENEMY_SPAWN_INTERVAL / (1f + (difficulty - 1f) * 0.4f);
-        spawnInterval = Math.max(0.15f, spawnInterval); // Allow very fast spawns (0.15s) in late game
-    }
-
-    private void triggerSpecialWave() {
-        // Find Player Position
-        Vector2 playerPos = new Vector2(0, 0);
-        Family playerFamily = Family.all(PlayerComponent.class).get();
-        ImmutableArray<Entity> players = getEngine().getEntitiesFor(playerFamily);
-        if (players.size() > 0) {
-            playerPos.set(posMapper.get(players.get(0)).position);
-        }
-
-        // Pick Random Pattern
-        SpawnPattern pattern = SpawnPattern.values()[MathUtils.random(SpawnPattern.values().length - 1)];
-        int count = 10 + (int)(difficulty * 2); // Pattern size scales with difficulty
-
-        // Pick Tougher Enemy Type for Patterns
-        String enemyType = "imp";
-        if (difficulty > 3.0f) enemyType = "tank";
-        if (difficulty > 5.0f) enemyType = "elite";
-
-        factory.spawnPattern(getEngine(), playerPos, pattern, enemyType, count, difficulty);
-
-        // Warning Sound
-        SoundManager.getInstance().play("spawn_breach", 0.8f);
-        System.out.println(">>> SPECIAL WAVE: " + pattern.name() + " (" + count + " " + enemyType + "s) <<<");
-    }
-
-    // ... (isBossActive, checkBossSpawn, triggerBossEvent, spawnEnemies, getRandomEdgePosition remain same) ...
-    private boolean isBossActive() {
-        Family bossFamily = Family.all(BossComponent.class).get();
-        return getEngine().getEntitiesFor(bossFamily).size() > 0;
+        spawnInterval = Math.max(0.15f, spawnInterval);
     }
 
     private void checkBossSpawn() {
@@ -116,6 +70,9 @@ public class EnemySpawnSystem extends EntitySystem {
         if (players.size() > 0) {
             Entity player = players.get(0);
             PlayerComponent pc = playerMapper.get(player);
+
+            // --- STRICT CHECK ---
+            // Ensure we haven't already processed this level threshold
             if (pc.level > 0 && pc.level % 5 == 0 && pc.level > lastBossLevel) {
                 lastBossLevel = pc.level;
                 triggerBossEvent(pc.level);
@@ -126,9 +83,39 @@ public class EnemySpawnSystem extends EntitySystem {
     private void triggerBossEvent(int level) {
         SoundManager.getInstance().play("spawn_breach", 1.0f);
         Vector2 spawnPos = getRandomEdgePosition();
+
+        // 1. Spawn Primary Boss
         factory.spawnBoss(getEngine(), spawnPos, level);
+
+        // 2. Spawn Secondary Boss ONLY if Level >= 40
+        if (level >= 40) {
+            Vector2 secondPos = new Vector2(spawnPos).add(150, 0);
+            factory.spawnBoss(getEngine(), secondPos, level);
+            System.out.println("⚠️ DOUBLE BOSS EVENT!");
+        }
+
+        // 3. Spawn Minions
         factory.spawnSwarm(getEngine(), spawnPos, "imp", 4, difficulty);
-        System.out.println(">>> BOSS WAVE STARTED <<<");
+        System.out.println(">>> BOSS WAVE STARTED (Level " + level + ") <<<");
+    }
+
+    private void triggerSpecialWave() {
+        Vector2 playerPos = new Vector2(0, 0);
+        Family playerFamily = Family.all(PlayerComponent.class).get();
+        ImmutableArray<Entity> players = getEngine().getEntitiesFor(playerFamily);
+        if (players.size() > 0) {
+            playerPos.set(posMapper.get(players.get(0)).position);
+        }
+
+        SpawnPattern pattern = SpawnPattern.values()[MathUtils.random(SpawnPattern.values().length - 1)];
+        int count = 10 + (int)(difficulty * 2);
+
+        String enemyType = "imp";
+        if (difficulty > 3.0f) enemyType = "tank";
+        if (difficulty > 5.0f) enemyType = "elite";
+
+        factory.spawnPattern(getEngine(), playerPos, pattern, enemyType, count, difficulty);
+        SoundManager.getInstance().play("spawn_breach", 0.8f);
     }
 
     private void spawnEnemies() {

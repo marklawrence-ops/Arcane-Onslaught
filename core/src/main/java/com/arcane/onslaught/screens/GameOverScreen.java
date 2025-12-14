@@ -1,6 +1,7 @@
 package com.arcane.onslaught.screens;
 
 import com.arcane.onslaught.utils.FontManager;
+import com.arcane.onslaught.utils.HighscoreManager;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -14,10 +15,10 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import com.badlogic.gdx.math.Rectangle; // Import
-import com.badlogic.gdx.math.Vector3;   // Import
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector3;
 import com.arcane.onslaught.utils.Constants;
-import com.arcane.onslaught.utils.SoundManager; // Import
+import com.arcane.onslaught.utils.SoundManager;
 
 public class GameOverScreen implements Screen {
     private Game game;
@@ -27,32 +28,32 @@ public class GameOverScreen implements Screen {
     private BitmapFont titleFont;
     private BitmapFont statFont;
     private BitmapFont font;
+    private BitmapFont scoreFont;
     private ShapeRenderer shapeRenderer;
     private GlyphLayout layout;
 
     private int finalLevel;
     private float survivalTime;
     private float fadeIn = 0f;
+    private boolean isNewRecord;
 
-    // --- NEW: Mouse & Sound Support ---
     private Vector3 touchPoint;
     private Rectangle retryBtnBounds;
     private Rectangle menuBtnBounds;
     private boolean retryHovered = false;
     private boolean menuHovered = false;
 
-    public GameOverScreen(Game game, float survivalTime, int finalLevel) {
+    public GameOverScreen(Game game, float survivalTime, int finalLevel, boolean isNewRecord) {
         this.game = game;
         this.survivalTime = survivalTime;
         this.finalLevel = finalLevel;
+        this.isNewRecord = isNewRecord;
     }
 
     @Override
     public void show() {
         camera = new OrthographicCamera();
         viewport = new FitViewport(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, camera);
-
-        // Fix Camera Position
         viewport.apply();
         camera.position.set(Constants.SCREEN_WIDTH / 2f, Constants.SCREEN_HEIGHT / 2f, 0);
         camera.update();
@@ -62,50 +63,28 @@ public class GameOverScreen implements Screen {
         layout = new GlyphLayout();
         touchPoint = new Vector3();
 
-        titleFont = new BitmapFont();
-        titleFont.getData().setScale(5f);
-        titleFont.setColor(Color.RED);
-
-        statFont = new BitmapFont();
-        statFont.getData().setScale(2.5f);
-        statFont.setColor(Color.GOLD);
-
-        font = new BitmapFont();
-        font.getData().setScale(1.8f);
-        font.setColor(Color.WHITE);
-
-        // --- FONT SETUP ---
         FontManager.getInstance().load();
         titleFont = FontManager.getInstance().generateFont(80, Color.RED);
         statFont = FontManager.getInstance().generateFont(40, Color.GOLD);
         font = FontManager.getInstance().generateFont(32, Color.WHITE);
+        scoreFont = FontManager.getInstance().generateFont(32, Color.YELLOW);
 
-        // Define Button Areas for Mouse
         float centerX = Constants.SCREEN_WIDTH / 2f;
         float centerY = Constants.SCREEN_HEIGHT / 2f;
-        // Approx bounds based on text position
-        retryBtnBounds = new Rectangle(centerX - 100, centerY - 150, 200, 50);
-        menuBtnBounds = new Rectangle(centerX - 150, centerY - 200, 300, 50);
 
-        // --- AUDIO: Stop Music & Play Sad Theme ---
+        // Adjusted hitbox positions
+        retryBtnBounds = new Rectangle(centerX - 100, centerY - 160, 200, 50);
+        menuBtnBounds = new Rectangle(centerX - 150, centerY - 220, 300, 50);
+
         SoundManager.getInstance().stopMusic();
         SoundManager.getInstance().play("gameover");
-
-        centerX = Constants.SCREEN_WIDTH / 2f;
-        centerY = Constants.SCREEN_HEIGHT / 2f;
-        retryBtnBounds = new Rectangle(centerX - 100, centerY - 150, 200, 50);
-        menuBtnBounds = new Rectangle(centerX - 150, centerY - 200, 300, 50);
     }
 
     @Override
     public void render(float delta) {
-        // Fullscreen Toggle
         if (Gdx.input.isKeyJustPressed(Input.Keys.F11)) {
-            if (Gdx.graphics.isFullscreen()) {
-                Gdx.graphics.setWindowedMode((int)Constants.SCREEN_WIDTH, (int)Constants.SCREEN_HEIGHT);
-            } else {
-                Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-            }
+            if (Gdx.graphics.isFullscreen()) Gdx.graphics.setWindowedMode((int)Constants.SCREEN_WIDTH, (int)Constants.SCREEN_HEIGHT);
+            else Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
         }
 
         fadeIn = Math.min(1f, fadeIn + delta * 2f);
@@ -114,14 +93,12 @@ public class GameOverScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         camera.update();
-
-        // Draw Background Box
         drawStatsBox();
 
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
 
-        // Title
+        // 1. Title (with shadow effect)
         titleFont.setColor(0, 0, 0, fadeIn * 0.7f);
         layout.setText(titleFont, "GAME OVER");
         titleFont.draw(batch, "GAME OVER", Constants.SCREEN_WIDTH / 2f - layout.width / 2 + 4, Constants.SCREEN_HEIGHT - 96f);
@@ -129,53 +106,58 @@ public class GameOverScreen implements Screen {
         titleFont.setColor(1f, 0.2f, 0.2f, fadeIn);
         titleFont.draw(batch, "GAME OVER", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT - 100f);
 
-        // Stats
+        // 2. Stats
         statFont.setColor(Color.GOLD.r, Color.GOLD.g, Color.GOLD.b, fadeIn);
+
+        // Increased Spacing: +80 instead of +60
         String levelText = "Final Level: " + finalLevel;
         layout.setText(statFont, levelText);
-        statFont.draw(batch, levelText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f + 60f);
+        statFont.draw(batch, levelText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f + 80f);
 
+        // Increased Spacing: +10 instead of 0
         String timeText = "Survived: " + formatTime(survivalTime);
         layout.setText(statFont, timeText);
-        statFont.draw(batch, timeText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f);
+        statFont.draw(batch, timeText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f + 10f);
 
-        // Buttons (With Hover Color Logic)
-        font.getData().setScale(1.8f);
+        // 3. Highscore Display
+        if (isNewRecord) {
+            scoreFont.setColor(1f, 1f, 0f, (float)Math.abs(Math.sin(System.currentTimeMillis() / 200.0))); // Flash
+            String recText = "NEW RECORD!";
+            layout.setText(scoreFont, recText);
+            // Lowered position: -60 instead of -50
+            scoreFont.draw(batch, recText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 60f);
+        } else {
+            scoreFont.setColor(0.8f, 0.8f, 0.8f, fadeIn);
+            String bestText = "Best: Lv " + HighscoreManager.getBestLevel() + " - " + HighscoreManager.formatTime(HighscoreManager.getBestTime());
+            layout.setText(scoreFont, bestText);
+            scoreFont.draw(batch, bestText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 60f);
+        }
 
-        // Retry Button
-        font.setColor(retryHovered ? Color.YELLOW : new Color(0.3f, 1f, 0.3f, fadeIn));
-        String retryText = "[ R ] Retry";
-        layout.setText(font, retryText);
-        font.draw(batch, retryText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 120f);
+        // 4. Buttons (Use White/Gray instead of Green/Red for better contrast)
+        font.setColor(retryHovered ? Color.YELLOW : new Color(0.9f, 0.9f, 0.9f, fadeIn));
+        layout.setText(font, "[ R ] Retry");
+        font.draw(batch, "[ R ] Retry", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 140f);
 
-        // Menu Button
-        font.setColor(menuHovered ? Color.YELLOW : new Color(1f, 0.5f, 0.5f, fadeIn));
-        String menuText = "[ Q ] Main Menu";
-        layout.setText(font, menuText);
-        font.draw(batch, menuText, Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 170f);
+        font.setColor(menuHovered ? Color.YELLOW : new Color(0.9f, 0.9f, 0.9f, fadeIn));
+        layout.setText(font, "[ Q ] Main Menu");
+        font.draw(batch, "[ Q ] Main Menu", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 200f);
 
         batch.end();
 
-        if (fadeIn >= 1f) {
-            handleInput();
-        }
+        if (fadeIn >= 1f) handleInput();
     }
 
     private void handleInput() {
-        // 1. Mouse/Touch Logic
         camera.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
 
-        // Retry Hover
         boolean nowRetry = retryBtnBounds.contains(touchPoint.x, touchPoint.y);
         if (nowRetry && !retryHovered) SoundManager.getInstance().play("ui_hover");
         retryHovered = nowRetry;
 
-        // Menu Hover
         boolean nowMenu = menuBtnBounds.contains(touchPoint.x, touchPoint.y);
         if (nowMenu && !menuHovered) SoundManager.getInstance().play("ui_hover");
         menuHovered = nowMenu;
 
-        // Mouse Click
         if (Gdx.input.justTouched()) {
             if (retryHovered) {
                 SoundManager.getInstance().play("ui_click");
@@ -186,7 +168,6 @@ public class GameOverScreen implements Screen {
             }
         }
 
-        // 2. Keyboard Logic
         if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
             SoundManager.getInstance().play("ui_click");
             game.setScreen(new GameScreen(game));
@@ -199,16 +180,17 @@ public class GameOverScreen implements Screen {
 
     private void drawStatsBox() {
         float boxWidth = 500f;
-        float boxHeight = 200f;
+        float boxHeight = 280f; // Made taller to fit spacing
         float x = Constants.SCREEN_WIDTH / 2f - boxWidth / 2f;
-        float y = Constants.SCREEN_HEIGHT / 2f - boxHeight / 2f + 20f;
+        float y = Constants.SCREEN_HEIGHT / 2f - boxHeight / 2f + 10f; // Adjusted Y center
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.1f, 0.05f, 0.05f, fadeIn * 0.8f);
+        // Made opacity 0.9f (Darker) for better readability
+        shapeRenderer.setColor(0.1f, 0.05f, 0.05f, fadeIn * 0.9f);
         shapeRenderer.rect(x, y, boxWidth, boxHeight);
         shapeRenderer.end();
 
@@ -227,23 +209,9 @@ public class GameOverScreen implements Screen {
         return String.format("%d:%02d", mins, secs);
     }
 
-    @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true); // Keep camera centered
-    }
-
-    @Override
-    public void pause() {}
-    @Override
-    public void resume() {}
-    @Override
-    public void hide() {}
-    @Override
-    public void dispose() {
-        batch.dispose();
-        shapeRenderer.dispose();
-        if (titleFont != null) titleFont.dispose();
-        if (statFont != null) statFont.dispose();
-        if (font != null) font.dispose();
-    }
+    @Override public void resize(int width, int height) { viewport.update(width, height, true); }
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
+    @Override public void dispose() { batch.dispose(); shapeRenderer.dispose(); if (titleFont != null) titleFont.dispose(); if (statFont != null) statFont.dispose(); if (font != null) font.dispose(); if (scoreFont != null) scoreFont.dispose(); }
 }

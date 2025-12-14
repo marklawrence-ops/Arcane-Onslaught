@@ -21,6 +21,9 @@ public class BossComponent implements Component {
     public boolean isCasting = false;
     public float castTimer = 0f;
 
+    public boolean isEnraged = false;
+    public float enrageTimer = 0f;
+
     public List<BossSkill> availableSkills = new ArrayList<>();
 
     public enum BossSkill {
@@ -31,7 +34,10 @@ public class BossComponent implements Component {
         FROST_BREATH,
         FIRE_FLAMETHROWER,
         POISON_SPIT,
-        ARCANE_NOVA
+        ARCANE_NOVA,
+        GRAVITY_WELL,
+        SHOCKWAVE,
+        BERSERK
     }
 
     public BossComponent(String name, String title) {

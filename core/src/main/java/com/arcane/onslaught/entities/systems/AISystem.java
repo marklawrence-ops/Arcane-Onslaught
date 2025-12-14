@@ -6,6 +6,7 @@ import com.arcane.onslaught.utils.SoundManager;
 import com.arcane.onslaught.utils.TextureManager;
 import com.badlogic.ashley.core.*;
 import com.badlogic.ashley.systems.IteratingSystem;
+import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
@@ -16,9 +17,10 @@ public class AISystem extends IteratingSystem {
     private ComponentMapper<VelocityComponent> vm = ComponentMapper.getFor(VelocityComponent.class);
     private ComponentMapper<AIComponent> am = ComponentMapper.getFor(AIComponent.class);
     private ComponentMapper<BossComponent> bm = ComponentMapper.getFor(BossComponent.class);
-    private ComponentMapper<VisualComponent> vism = ComponentMapper.getFor(VisualComponent.class); // Needed for flashing
+    private ComponentMapper<VisualComponent> vism = ComponentMapper.getFor(VisualComponent.class);
+    private ComponentMapper<HealthComponent> hm = ComponentMapper.getFor(HealthComponent.class);
 
-    private Vector2 playerPos = new Vector2();
+    private Entity playerEntity; // Store player reference
     private EnemyFactory enemyFactory;
 
     public AISystem(EnemyFactory factory) {
@@ -28,12 +30,15 @@ public class AISystem extends IteratingSystem {
 
     @Override
     public void update(float deltaTime) {
+        // Cache player entity
         Family playerFamily = Family.all(PlayerComponent.class, PositionComponent.class).get();
-        for (Entity entity : getEngine().getEntitiesFor(playerFamily)) {
-            PositionComponent pos = pm.get(entity);
-            playerPos.set(pos.position);
-            break;
+        ImmutableArray<Entity> players = getEngine().getEntitiesFor(playerFamily);
+        if (players.size() > 0) {
+            playerEntity = players.get(0);
+        } else {
+            playerEntity = null;
         }
+
         super.update(deltaTime);
     }
 
@@ -44,130 +49,171 @@ public class AISystem extends IteratingSystem {
         if (boss != null) {
             processBossBehavior(entity, boss, deltaTime);
         } else {
-            // Standard Enemy Logic
+            // Standard Enemy Behavior
+            if (playerEntity == null) return;
             PositionComponent pos = pm.get(entity);
             VelocityComponent vel = vm.get(entity);
             AIComponent ai = am.get(entity);
+            PositionComponent playerPos = pm.get(playerEntity);
 
             if (ai.type == AIComponent.AIType.CHASE_PLAYER) {
-                Vector2 direction = new Vector2(playerPos).sub(pos.position).nor();
+                Vector2 direction = new Vector2(playerPos.position).sub(pos.position).nor();
                 vel.velocity.set(direction).scl(vel.maxSpeed);
             }
         }
     }
 
     private void processBossBehavior(Entity entity, BossComponent boss, float deltaTime) {
+        if (playerEntity == null) return;
+
         PositionComponent pos = pm.get(entity);
         VelocityComponent vel = vm.get(entity);
         VisualComponent vis = vism.get(entity);
+        PositionComponent playerPos = pm.get(playerEntity);
 
-        // --- STATE 1: CASTING (Skill is happening) ---
+        // --- ENRAGE (BERSERK) BUFF ---
+        if (boss.isEnraged) {
+            boss.enrageTimer -= deltaTime;
+            if (boss.enrageTimer <= 0) {
+                boss.isEnraged = false;
+                vis.color = Color.WHITE; // Reset color
+                vel.maxSpeed /= 2f; // Reset speed
+            } else {
+                // Ensure visual feedback remains during enrage
+                if (boss.enrageTimer % 0.2f < 0.1f) vis.color = Color.RED;
+                else vis.color = Color.ORANGE;
+            }
+        }
+
+        // --- STATE 1: CASTING ---
         if (boss.isCasting) {
             boss.castTimer -= deltaTime;
-            vel.velocity.setZero(); // Rooted while casting
+
+            // Gravity Well Logic (Pull Player)
+            if (boss.nextSkill == BossSkill.GRAVITY_WELL && playerEntity != null) {
+                PositionComponent pPos = pm.get(playerEntity);
+                Vector2 pullDir = new Vector2(pos.position).sub(pPos.position).nor();
+                // Move player towards boss
+                pPos.position.add(pullDir.scl(300f * deltaTime));
+            }
+
+            vel.velocity.setZero();
             if (boss.castTimer <= 0) {
                 boss.isCasting = false;
-                vis.color = Color.WHITE; // Reset color
+                if (!boss.isEnraged) vis.color = Color.WHITE;
             }
             return;
         }
 
-        // --- STATE 2: TELEGRAPHING (Warning Phase) ---
+        // --- STATE 2: TELEGRAPHING ---
         if (boss.isTelegraphing) {
             boss.telegraphTimer -= deltaTime;
-            vel.velocity.setZero(); // Rooted while warning
+            vel.velocity.setZero();
 
-            // Visual Warning: Flash colors based on skill type
+            // Flash Visuals
             float flashSpeed = 15f;
             float alpha = (MathUtils.sin(boss.telegraphTimer * flashSpeed) + 1) / 2f;
 
-            if (boss.nextSkill == BossSkill.DASH_ATTACK) {
-                // Flash RED for physical attacks
-                vis.color = new Color(1f, alpha, alpha, 1f);
-            } else if (boss.nextSkill == BossSkill.SUMMON_MINIONS) {
-                // Flash PURPLE for summoning
-                vis.color = new Color(0.8f, 0.2f, 0.8f, 1f);
-            } else if (boss.nextSkill == BossSkill.TELEPORT_AMBUSH) {
-                // Fade out/Flash CYAN for teleport
-                vis.color = new Color(0.2f, 1f, 1f, alpha);
+            if (boss.nextSkill == BossSkill.SHOCKWAVE || boss.nextSkill == BossSkill.BERSERK) {
+                vis.color = new Color(1f, alpha, 0f, 1f); // Orange Flash
+            } else if (boss.nextSkill == BossSkill.GRAVITY_WELL) {
+                vis.color = new Color(0.1f, 0.1f, 0.1f, alpha); // Dark Flash
             } else {
-                // Flash YELLOW for elemental casts
-                vis.color = new Color(1f, 1f, alpha, 1f);
+                vis.color = new Color(1f, 1f, alpha, 1f); // Standard Flash
             }
 
-            // Time's up! Execute the skill
             if (boss.telegraphTimer <= 0) {
                 boss.isTelegraphing = false;
                 executeSkill(entity, boss, boss.nextSkill, pos.position);
-                vis.color = Color.WHITE; // Reset visual
-                boss.skillTimer = boss.skillCooldown; // Start Cooldown
+                if (!boss.isEnraged) vis.color = Color.WHITE;
+                boss.skillTimer = boss.skillCooldown;
             }
             return;
         }
 
-        // --- STATE 3: COOLDOWN / CHASING ---
-        if (boss.skillTimer > 0) {
-            boss.skillTimer -= deltaTime;
-        }
+        // --- STATE 3: COOLDOWN / CHASE ---
+        if (boss.skillTimer > 0) boss.skillTimer -= deltaTime;
 
-        // Chase Player
-        Vector2 direction = new Vector2(playerPos).sub(pos.position).nor();
+        Vector2 direction = new Vector2(playerPos.position).sub(pos.position).nor();
         vel.velocity.set(direction).scl(vel.maxSpeed);
 
-        // --- TRIGGER NEW SKILL ---
         if (boss.skillTimer <= 0 && !boss.availableSkills.isEmpty()) {
-            // 1. Pick Skill
             BossSkill skill = boss.availableSkills.get(MathUtils.random(boss.availableSkills.size() - 1));
             boss.nextSkill = skill;
-
-            // 2. Start Telegraph Phase
             boss.isTelegraphing = true;
 
-            // Set telegraph duration based on skill danger level
             switch (skill) {
-                case DASH_ATTACK: boss.telegraphTimer = 1.0f; break; // Long warning for dash
-                case TELEPORT_AMBUSH: boss.telegraphTimer = 0.8f; break;
-                case SUMMON_MINIONS: boss.telegraphTimer = 1.5f; break; // Very long warning
-                default: boss.telegraphTimer = 0.6f; break; // Quick warning for spells
+                case SHOCKWAVE: boss.telegraphTimer = 1.0f; break; // Big warning
+                case GRAVITY_WELL: boss.telegraphTimer = 0.8f; break;
+                case BERSERK: boss.telegraphTimer = 0.5f; break; // Quick warn
+                case SUMMON_MINIONS: boss.telegraphTimer = 1.5f; break;
+                default: boss.telegraphTimer = 0.6f; break;
             }
         }
     }
 
     private void executeSkill(Entity bossEntity, BossComponent boss, BossSkill skill, Vector2 bossPos) {
-        System.out.println("Boss Executing: " + skill);
+        System.out.println("Boss Casting: " + skill);
+        PositionComponent playerPosComp = pm.get(playerEntity);
+        Vector2 playerPosVec = playerPosComp.position;
 
         switch (skill) {
-            case SUMMON_MINIONS:
-                enemyFactory.spawnSwarm(getEngine(), bossPos, "imp", 10, 1.5f);
+            case SHOCKWAVE:
+                // Damage + Knockback if close
+                float dist = bossPos.dst(playerPosVec);
+                if (dist < 300f) { // 300 pixel range
+                    HealthComponent ph = hm.get(playerEntity);
+                    ph.damage(30f); // Big damage
+                    SoundManager.getInstance().play("explosion", 1.0f);
+
+                    // Knockback
+                    Vector2 knockback = new Vector2(playerPosVec).sub(bossPos).nor().scl(200f);
+                    playerPosVec.add(knockback);
+                }
                 boss.isCasting = true;
-                boss.castTimer = 0.5f; // Brief pause after summon
+                boss.castTimer = 0.5f;
+                break;
+
+            case GRAVITY_WELL:
+                // Effect happens during 'isCasting' state update loop
+                SoundManager.getInstance().play("teleport", 0.8f);
+                boss.isCasting = true;
+                boss.castTimer = 2.0f; // Pull for 2 seconds
+                break;
+
+            case BERSERK:
+                boss.isEnraged = true;
+                boss.enrageTimer = 5.0f; // Lasts 5 seconds
+                VelocityComponent vel = vm.get(bossEntity);
+                vel.maxSpeed *= 2.0f; // Double speed
+                SoundManager.getInstance().play("spawn_breach", 1.0f);
+                break;
+
+            case SUMMON_MINIONS:
+                enemyFactory.spawnSwarm(getEngine(), bossPos, "imp", 3, 1.5f);
+                boss.isCasting = true;
+                boss.castTimer = 1.0f;
                 SoundManager.getInstance().play("spawn_breach", 1.0f);
                 break;
 
             case DASH_ATTACK:
-                VelocityComponent vel = vm.get(bossEntity);
-                Vector2 dashDir = new Vector2(playerPos).sub(bossPos).nor();
-                vel.velocity.set(dashDir).scl(vel.maxSpeed * 5f); // Super fast dash
+                VelocityComponent v = vm.get(bossEntity);
+                Vector2 dashDir = new Vector2(playerPosVec).sub(bossPos).nor();
+                v.velocity.set(dashDir).scl(v.maxSpeed * 4f);
                 boss.isCasting = true;
-                boss.castTimer = 0.6f; // Dash duration
+                boss.castTimer = 0.5f;
                 break;
 
             case TELEPORT_AMBUSH:
-                Vector2 offset = new Vector2(MathUtils.random(-150, 150), MathUtils.random(-150, 150));
-                Vector2 teleportPos = new Vector2(playerPos).add(offset);
-                teleportPos.x = MathUtils.clamp(teleportPos.x, 50, 1870);
-                teleportPos.y = MathUtils.clamp(teleportPos.y, 50, 1030);
-
+                Vector2 offset = new Vector2(MathUtils.random(-100, 100), MathUtils.random(-100, 100));
+                Vector2 telePos = new Vector2(playerPosVec).add(offset);
                 PositionComponent pmPos = pm.get(bossEntity);
-                pmPos.position.set(teleportPos);
+                pmPos.position.set(telePos);
                 SoundManager.getInstance().play("teleport", 1.0f);
-                boss.isCasting = true;
-                boss.castTimer = 0.5f; // Recovery time
                 break;
 
-            // ... (Elemental skills remain largely the same, just triggered here) ...
             case ARCANE_NOVA:
-                int bullets = 50;
+                int bullets = 12;
                 for (int i = 0; i < bullets; i++) {
                     spawnBossProjectile(bossPos, (360f / bullets) * i, "arcane_missile", Color.PURPLE);
                 }
@@ -176,30 +222,29 @@ public class AISystem extends IteratingSystem {
                 break;
 
             case FIRE_FLAMETHROWER:
-                Vector2 toPlayer = new Vector2(playerPos).sub(bossPos);
-                float baseAngle = toPlayer.angleDeg();
+                float baseAngle = new Vector2(playerPosVec).sub(bossPos).angleDeg();
                 for (int i = -2; i <= 2; i++) {
                     spawnBossProjectile(bossPos, baseAngle + (i * 10), "fireball", Color.ORANGE);
                 }
                 boss.isCasting = true;
-                boss.castTimer = 0.4f;
+                boss.castTimer = 1.0f;
                 break;
 
             case FROST_BREATH:
-                float frostAngle = new Vector2(playerPos).sub(bossPos).angleDeg();
+                float frostAngle = new Vector2(playerPosVec).sub(bossPos).angleDeg();
                 for (int i = -3; i <= 3; i++) {
                     Entity proj = spawnBossProjectile(bossPos, frostAngle + (i * 8), "ice_shard", Color.CYAN);
                     proj.add(new SlowComponent(0.5f, 2.0f));
                 }
                 boss.isCasting = true;
-                boss.castTimer = 0.5f;
+                boss.castTimer = 1.0f;
                 break;
 
             case POISON_SPIT:
-                Entity proj = spawnBossProjectile(bossPos, new Vector2(playerPos).sub(bossPos).angleDeg(), "poison", Color.GREEN);
+                Entity proj = spawnBossProjectile(bossPos, new Vector2(playerPosVec).sub(bossPos).angleDeg(), "poison", Color.GREEN);
                 proj.add(new PoisonComponent(10f, 5.0f));
                 boss.isCasting = true;
-                boss.castTimer = 0.3f;
+                boss.castTimer = 0.5f;
                 break;
 
             case ELECTRIC_AURA:
@@ -207,7 +252,7 @@ public class AISystem extends IteratingSystem {
                     spawnBossProjectile(bossPos, (360f / 8) * i, "lightning", Color.YELLOW);
                 }
                 boss.isCasting = true;
-                boss.castTimer = 0.1f;
+                boss.castTimer = 1.0f;
                 break;
         }
     }

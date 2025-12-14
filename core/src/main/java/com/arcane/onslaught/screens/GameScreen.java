@@ -10,7 +10,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.BitmapFont; // --- NEW ---
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -37,7 +37,7 @@ public class GameScreen implements Screen {
 
     private SpriteBatch mainBatch;
     private SpriteBatch damageBatch;
-    private SpriteBatch uiBatch; // --- NEW: Batch for Text ---
+    private SpriteBatch uiBatch;
     private NinePatch borderPatch;
 
     private Entity player;
@@ -53,7 +53,7 @@ public class GameScreen implements Screen {
     private float pulseTimer = 0f;
 
     private DebugRenderSystem debugSystem;
-    private BitmapFont hudFont; // --- NEW: Font ---
+    private BitmapFont hudFont;
 
     public GameScreen(Game game) {
         this.game = game;
@@ -66,12 +66,11 @@ public class GameScreen implements Screen {
         TextureManager.getInstance().loadTextures();
         Texture borderTex = TextureManager.getInstance().getTexture("border");
         if (borderTex != null) {
-            // 16 is the pixel size of the corners/edges in the image we generated
             borderPatch = new NinePatch(borderTex, 80, 80, 80, 80);
         }
 
         SoundManager.getInstance().loadSounds();
-        FontManager.getInstance().load(); // --- NEW: Load Fonts ---
+        FontManager.getInstance().load();
 
         SoundManager.getInstance().playMusic("abyss");
 
@@ -84,9 +83,8 @@ public class GameScreen implements Screen {
         shapeRenderer = new ShapeRenderer();
         mainBatch = new SpriteBatch();
         damageBatch = new SpriteBatch();
-        uiBatch = new SpriteBatch(); // --- NEW ---
+        uiBatch = new SpriteBatch();
 
-        // --- NEW: Generate HUD Font ---
         hudFont = FontManager.getInstance().generateFont(24, Color.WHITE);
 
         engine = new Engine();
@@ -98,7 +96,6 @@ public class GameScreen implements Screen {
         inputProcessor = new GameInputProcessor();
         Gdx.input.setInputProcessor(inputProcessor);
 
-        // ... (Systems setup remains the same) ...
         engine.addSystem(new PlayerInputSystem(inputProcessor));
         engine.addSystem(new MovementSystem());
         engine.addSystem(new AISystem(enemyFactory));
@@ -127,7 +124,6 @@ public class GameScreen implements Screen {
         setupEventListeners();
     }
 
-    // ... (createPlayer and setupEventListeners remain the same) ...
     private void createPlayer() {
         player = new Entity();
         float startX = Constants.SCREEN_WIDTH / 2f;
@@ -142,7 +138,7 @@ public class GameScreen implements Screen {
         }
         player.add(new SpawningComponent(2.0f));
         VisualComponent vis = player.getComponent(VisualComponent.class);
-        vis.isBobbing = true; // Enable the animation
+        vis.isBobbing = true;
         if (vis != null && vis.sprite != null) vis.sprite.setAlpha(0f);
         player.add(new CollisionComponent(8f, (short)0, (short)0));
         player.add(new HealthComponent(Constants.PLAYER_MAX_HEALTH));
@@ -156,12 +152,19 @@ public class GameScreen implements Screen {
 
     private void setupEventListeners() {
         EventManager em = EventManager.getInstance();
+
+        // --- UPDATED GAME OVER LISTENER ---
         em.subscribe(GameOverEvent.class, event -> {
             if (!isGameOver) {
                 isGameOver = true;
-                game.setScreen(new GameOverScreen(game, event.getSurvivalTime(), event.getFinalLevel()));
+                // Check and Save Highscore
+                boolean isNewRecord = HighscoreManager.checkAndSave(event.getFinalLevel(), event.getSurvivalTime());
+                // Pass record status to screen
+                game.setScreen(new GameOverScreen(game, event.getSurvivalTime(), event.getFinalLevel(), isNewRecord));
             }
         });
+        // ----------------------------------
+
         em.subscribe(LevelUpEvent.class, event -> {
             SoundManager.getInstance().play("levelup");
             for (com.arcane.onslaught.spells.Spell spell : spellManager.getActiveSpells()) {
@@ -175,13 +178,12 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        // ... (Input handling: F11, F1, F3, TAB, ESC remains the same) ...
         if (Gdx.input.isKeyJustPressed(Input.Keys.F11)) {
             if (Gdx.graphics.isFullscreen()) Gdx.graphics.setWindowedMode((int)Constants.SCREEN_WIDTH, (int)Constants.SCREEN_HEIGHT);
             else Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
-            game.setScreen(new CheatMenuScreen(game, this, player, playerBuild, spellManager, upgradePool));
+            game.setScreen(new CheatMenuScreen(game, this, player, playerBuild, spellManager, upgradePool, enemyFactory));
             return;
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
@@ -205,11 +207,8 @@ public class GameScreen implements Screen {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // 1. Draw Background
         drawBackground();
 
-        // 2. Draw Border (MOVED HERE)
-        // We draw the border NOW so it sits behind the entities and UI
         mainBatch.setProjectionMatrix(camera.combined);
         mainBatch.begin();
 
@@ -223,23 +222,16 @@ public class GameScreen implements Screen {
         }
         mainBatch.end();
 
-        // 3. Update Engine (Draws Players, Enemies, and UI Bars ON TOP of Border)
         if (!isGameOver && !isPaused) {
             gameTime += delta;
             pulseTimer += delta;
             mainBatch.setProjectionMatrix(camera.combined);
             damageBatch.setProjectionMatrix(camera.combined);
             engine.update(delta);
-        } else {
-            // Optional: If paused, you might still want to draw the scene without updating logic
-            // engine.getSystem(RenderSystem.class).update(0);
-            // engine.getSystem(UISystem.class).update(0);
         }
 
-        // 4. Draw HUD Text (Timer)
         drawHUD();
 
-        // ... (Revive logic remains the same) ...
         if (!isGameOver) {
             HealthComponent health = player.getComponent(HealthComponent.class);
             if (player.getComponent(GodModeComponent.class) != null) {
@@ -268,22 +260,14 @@ public class GameScreen implements Screen {
 
         uiBatch.setProjectionMatrix(camera.combined);
         uiBatch.begin();
-
-        // --- ONLY DRAW TIMER (Level/XP handled by UISystem now) ---
-
         int mins = (int)(gameTime / 60);
         int secs = (int)(gameTime % 60);
         String timeStr = String.format("%02d:%02d", mins, secs);
-
-        // Draw Timer Top Center
         hudFont.setColor(Color.GOLD);
-        // Calculate rough center position
         hudFont.draw(uiBatch, timeStr, Constants.SCREEN_WIDTH / 2f - 30, Constants.SCREEN_HEIGHT - 20);
-
         uiBatch.end();
     }
 
-    // ... (spawnReviveEffect and drawBackground remain the same) ...
     private void spawnReviveEffect() {
         Entity effect = new Entity();
         PositionComponent playerPos = player.getComponent(PositionComponent.class);
@@ -315,11 +299,7 @@ public class GameScreen implements Screen {
     public void renderPaused(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // 1. Draw Background
         drawBackground();
-
-        // 2. Draw Border (The new Abyss Texture)
         mainBatch.setProjectionMatrix(camera.combined);
         mainBatch.begin();
         if (borderPatch != null) {
@@ -331,17 +311,12 @@ public class GameScreen implements Screen {
             );
         }
         mainBatch.end();
-
-        // 3. Draw Frozen Entities
         engine.getSystem(RenderSystem.class).update(0);
         engine.getSystem(DebugRenderSystem.class).update(0);
         engine.getSystem(UISystem.class).update(0);
-
-        // 4. Draw HUD Text
         drawHUD();
     }
 
-    // ... (showUpgradeScreen, applyUpgrade, resize, pause, resume, hide remain the same) ...
     private void showUpgradeScreen() {
         java.util.List<Upgrade> upgrades = upgradePool.getRandomUpgrades(playerBuild, spellManager, 3);
         if (!upgrades.isEmpty()) {
@@ -352,6 +327,10 @@ public class GameScreen implements Screen {
     public void applyUpgrade(Upgrade upgrade) {
         upgrade.apply(player, spellManager, playerBuild);
         playerBuild.addUpgrade(upgrade);
+    }
+
+    public Engine getEngine() {
+        return engine;
     }
 
     @Override
@@ -368,12 +347,8 @@ public class GameScreen implements Screen {
         shapeRenderer.dispose();
         mainBatch.dispose();
         damageBatch.dispose();
-
-        // --- NEW: Dispose UI Batch and Font ---
         uiBatch.dispose();
         if (hudFont != null) hudFont.dispose();
-        // --------------------------------------
-
         TextureManager.getInstance().dispose();
         SoundManager.getInstance().dispose();
         SoundManager.getInstance().stopMusic();

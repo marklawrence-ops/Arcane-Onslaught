@@ -15,19 +15,25 @@ import java.util.List;
 import java.util.Map;
 
 public class EnemyFactory {
-    // ... (Existing Maps and Lists remain unchanged) ...
     private Map<String, EnemyType> enemyTypes;
-    private enum BossArchetype { TITAN, BERSERKER, SPEEDSTER, TANK }
+    public enum BossArchetype { TITAN, BERSERKER, SPEEDSTER, TANK }
 
     private static final List<BossSkill> ELEMENTAL_SKILLS = Arrays.asList(
-        BossSkill.ELECTRIC_AURA, BossSkill.FROST_BREATH, BossSkill.FIRE_FLAMETHROWER,
-        BossSkill.POISON_SPIT, BossSkill.ARCANE_NOVA
+        BossSkill.ELECTRIC_AURA,
+        BossSkill.FROST_BREATH,
+        BossSkill.FIRE_FLAMETHROWER,
+        BossSkill.POISON_SPIT,
+        BossSkill.ARCANE_NOVA
     );
     private static final List<BossSkill> UTILITY_SKILLS = Arrays.asList(
-        BossSkill.SUMMON_MINIONS, BossSkill.DASH_ATTACK, BossSkill.TELEPORT_AMBUSH
+        BossSkill.SUMMON_MINIONS,
+        BossSkill.DASH_ATTACK,
+        BossSkill.TELEPORT_AMBUSH,
+        BossSkill.GRAVITY_WELL, // New
+        BossSkill.SHOCKWAVE,    // New
+        BossSkill.BERSERK       // New
     );
 
-    // --- NEW: Pattern Enums ---
     public enum SpawnPattern {
         WALL_HORIZONTAL,
         WALL_VERTICAL,
@@ -40,7 +46,6 @@ public class EnemyFactory {
         registerEnemyTypes();
     }
 
-    // ... (registerEnemyTypes, spawnBoss, spawnEnemy, spawnRandomEnemy, selectEnemyType, createScaledInstance remain same) ...
     private void registerEnemyTypes() {
         enemyTypes.put("zombie", new ZombieEnemy());
         enemyTypes.put("imp", new ImpEnemy());
@@ -54,17 +59,30 @@ public class EnemyFactory {
     }
 
     public void spawnBoss(Engine engine, Vector2 position, int playerLevel) {
-        // ... (Keep your existing Boss Logic intact) ...
+        BossArchetype randomType = BossArchetype.values()[MathUtils.random(BossArchetype.values().length - 1)];
+        spawnBoss(engine, position, playerLevel, randomType);
+    }
+
+    public void spawnBoss(Engine engine, Vector2 position, int playerLevel, BossArchetype archetype) {
         Entity boss = new Entity();
-        BossArchetype archetype = BossArchetype.values()[MathUtils.random(BossArchetype.values().length - 1)];
+
         BossSkill elementalSkill = ELEMENTAL_SKILLS.get(MathUtils.random(ELEMENTAL_SKILLS.size() - 1));
         BossSkill utilitySkill = UTILITY_SKILLS.get(MathUtils.random(UTILITY_SKILLS.size() - 1));
+
         String bossTitle = archetype.name() + " (" + elementalSkill.name() + ")";
 
         float baseHealth = 1200f + (playerLevel * 120f);
         float baseSpeed = 55f;
         float baseDamage = 25f;
         float size = 90f;
+
+        // --- NEW: Level 10+ Difficulty Spike ---
+        if (playerLevel >= 10) {
+            baseHealth *= 2.0f; // Massive Health Buff
+            baseDamage *= 2.0f; // Massive Damage Buff
+            System.out.println("⚠️ BOSS ENRAGED! Stats Doubled.");
+        }
+        // ---------------------------------------
 
         switch (archetype) {
             case TITAN: baseHealth *= 2.0f; baseSpeed *= 0.6f; size *= 1.3f; break;
@@ -96,7 +114,7 @@ public class EnemyFactory {
             vis = new VisualComponent(size, size, tint);
         }
         vis.isFadingIn = true;
-        vis.fadeInDuration = 1.0f;
+        vis.fadeInDuration = 2.0f;
         boss.add(vis);
 
         boss.add(new PositionComponent(position.x, position.y));
@@ -115,6 +133,7 @@ public class EnemyFactory {
         System.out.println("⚠️ BOSS SPAWNED: " + bossTitle);
     }
 
+    // ... (Keep the rest of the file: spawnEnemy, spawnRandomEnemy, spawnPattern, etc. exactly the same) ...
     public Entity spawnEnemy(Engine engine, String typeId, Vector2 position, float difficultyMultiplier) {
         EnemyType type = enemyTypes.get(typeId);
         if (type != null) {
@@ -201,31 +220,24 @@ public class EnemyFactory {
         return type;
     }
 
-    // --- NEW: Pattern Spawning Logic ---
     public void spawnPattern(Engine engine, Vector2 playerPos, SpawnPattern pattern, String enemyType, int count, float difficulty) {
         float spacing = 40f;
-
         switch (pattern) {
             case WALL_HORIZONTAL:
                 float startX = playerPos.x - (count * spacing) / 2;
-                // Spawn above or below player randomly
                 float yPos = playerPos.y + (MathUtils.randomBoolean() ? 600f : -600f);
                 for (int i = 0; i < count; i++) {
                     spawnEnemy(engine, enemyType, new Vector2(startX + i * spacing, yPos), difficulty);
                 }
                 break;
-
             case WALL_VERTICAL:
                 float startY = playerPos.y - (count * spacing) / 2;
-                // Spawn left or right of player randomly
                 float xPos = playerPos.x + (MathUtils.randomBoolean() ? 1000f : -1000f);
                 for (int i = 0; i < count; i++) {
                     spawnEnemy(engine, enemyType, new Vector2(xPos, startY + i * spacing), difficulty);
                 }
                 break;
-
             case CIRCLE_ENCIRCLEMENT:
-                // Tight circle around player
                 float radius = 600f;
                 for (int i = 0; i < count; i++) {
                     float angle = (360f / count) * i;
@@ -233,12 +245,9 @@ public class EnemyFactory {
                     spawnEnemy(engine, enemyType, new Vector2(playerPos).add(offset), difficulty);
                 }
                 break;
-
             case TRIANGLE_WEDGE:
-                // Spawn a V-shape wedge aimed at player
                 Vector2 spawnOrigin = new Vector2(playerPos).add(MathUtils.random(-800, 800), MathUtils.random(-600, 600));
                 for (int i = 0; i < count; i++) {
-                    // Simple V formation logic
                     float rowOffset = (i % 3) * spacing;
                     float colOffset = (i / 3) * spacing;
                     spawnEnemy(engine, enemyType, new Vector2(spawnOrigin.x + rowOffset, spawnOrigin.y + colOffset), difficulty);
@@ -247,7 +256,6 @@ public class EnemyFactory {
         }
     }
 
-    // Keep old swarm for compatibility or boss minions
     public void spawnSwarm(Engine engine, Vector2 centerPosition, String enemyType, int count, float difficulty) {
         spawnPattern(engine, centerPosition, SpawnPattern.CIRCLE_ENCIRCLEMENT, enemyType, count, difficulty);
     }
