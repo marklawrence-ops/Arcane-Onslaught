@@ -220,7 +220,7 @@ public class MenuScreen implements Screen {
         font.draw(batch, "Controls:\nWASD - Move\nESC - Pause\nSpells cast automatically", 50f, 250f);
 
         font.setColor(new Color(0.5f, 0.5f, 0.5f, 0.6f));
-        font.draw(batch, "v1.4 - Roguelike Survivor", 20f, 30f);
+        font.draw(batch, "v1.5 - Roguelike Survivor", 20f, 30f);
 
         batch.end();
 

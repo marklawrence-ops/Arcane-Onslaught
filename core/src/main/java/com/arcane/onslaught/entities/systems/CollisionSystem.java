@@ -2,7 +2,7 @@ package com.arcane.onslaught.entities.systems;
 
 import com.arcane.onslaught.upgrades.*;
 import com.badlogic.ashley.core.*;
-import com.badlogic.ashley.utils.ImmutableArray; // Required for indexed loops
+import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
@@ -30,6 +30,8 @@ public class CollisionSystem extends EntitySystem {
     private ComponentMapper<CriticalComponent> critMapper;
     private ComponentMapper<CollisionComponent> colMapper;
     private ComponentMapper<SlowedComponent> slowedMapper;
+    // --- NEW: Mapper for Enemy Projectiles ---
+    private ComponentMapper<EnemyProjectileComponent> enemyProjMapper;
 
     private Entity player;
     private PlayerBuild playerBuild;
@@ -71,6 +73,8 @@ public class CollisionSystem extends EntitySystem {
         critMapper = ComponentMapper.getFor(CriticalComponent.class);
         colMapper = ComponentMapper.getFor(CollisionComponent.class);
         slowedMapper = ComponentMapper.getFor(SlowedComponent.class);
+        // --- Initialize New Mapper ---
+        enemyProjMapper = ComponentMapper.getFor(EnemyProjectileComponent.class);
 
         random = new java.util.Random();
     }
@@ -98,6 +102,9 @@ public class CollisionSystem extends EntitySystem {
 
         checkProjectileEnemyCollisions();
         checkPlayerEnemyCollisions();
+        // --- NEW: Check Boss/Enemy Projectiles ---
+        checkEnemyProjectileCollisions();
+        // -----------------------------------------
         checkPlayerXPCollisions();
         checkPlayerHealthCollisions();
         removeDeadEnemies();
@@ -122,6 +129,7 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
+    // ... (Explosion methods unchanged) ...
     private void queueExplosion(Vector2 position, ExplosiveComponent explosive) {
         explosionQueue.add(new ExplosionRequest(position, explosive.explosionRadius, explosive.explosionDamage));
     }
@@ -135,7 +143,6 @@ public class CollisionSystem extends EntitySystem {
         for (ExplosionRequest req : explosionQueue) {
             spawnExplosionVisual(req.position, req.radius);
 
-            // Using indexed loop for safety
             for (int i = 0; i < enemies.size(); ++i) {
                 Entity enemy = enemies.get(i);
                 if (entitiesToRemove.contains(enemy, true)) continue;
@@ -174,7 +181,6 @@ public class CollisionSystem extends EntitySystem {
         ImmutableArray<Entity> projectiles = getEngine().getEntitiesFor(projFamily);
         ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
 
-        // --- FIXED LOOP 1: Projectiles ---
         for (int i = 0; i < projectiles.size(); ++i) {
             Entity proj = projectiles.get(i);
             if (entitiesToRemove.contains(proj, true)) continue;
@@ -183,7 +189,6 @@ public class CollisionSystem extends EntitySystem {
             ProjectileComponent projComp = projMapper.get(proj);
             float projRadius = getEntityRadius(proj);
 
-            // --- FIXED LOOP 2: Enemies (Inner Loop) ---
             for (int j = 0; j < enemies.size(); ++j) {
                 Entity enemy = enemies.get(j);
                 if (entitiesToRemove.contains(enemy, true)) continue;
@@ -209,7 +214,92 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
-    // ... spawnVisualEffect, explodeAt, spawnExplosionVisual remain unchanged ...
+    // --- NEW: Check Boss/Enemy Projectile Collisions ---
+    private void checkEnemyProjectileCollisions() {
+        PositionComponent playerPos = posMapper.get(player);
+        HealthComponent playerHealth = healthMapper.get(player);
+        if (playerHealth == null || !playerHealth.isAlive()) return;
+
+        float playerRadius = getEntityRadius(player);
+
+        Family projFamily = Family.all(EnemyProjectileComponent.class, PositionComponent.class).get();
+        ImmutableArray<Entity> projectiles = getEngine().getEntitiesFor(projFamily);
+
+        for (int i = 0; i < projectiles.size(); ++i) {
+            Entity proj = projectiles.get(i);
+            if (entitiesToRemove.contains(proj, true)) continue;
+
+            PositionComponent projPos = posMapper.get(proj);
+            EnemyProjectileComponent enemyProj = enemyProjMapper.get(proj);
+            float projRadius = getEntityRadius(proj);
+
+            if (playerPos.position.dst(projPos.position) < playerRadius + projRadius) {
+                // 1. Deal Damage
+                playerHealth.damage(enemyProj.damage, proj);
+                SoundManager.getInstance().play("hit", 1.0f);
+
+                // 2. Apply Status Effects to Player
+
+                // A. Slow
+                SlowComponent slow = slowMapper.get(proj);
+                if (slow != null) {
+                    VelocityComponent playerVel = velMapper.get(player);
+                    SlowedComponent currentSlow = slowedMapper.get(player);
+
+                    if (playerVel != null) {
+                        if (currentSlow == null) {
+                            System.out.println("❄️ Player Slowed!");
+                            player.add(new SlowedComponent(slow.slowAmount, slow.slowDuration, playerVel.maxSpeed));
+                        } else {
+                            currentSlow.duration = Math.max(currentSlow.duration, slow.slowDuration);
+                        }
+                    }
+                }
+
+                // B. Poison
+                PoisonComponent poison = poisonMapper.get(proj);
+                if (poison != null) {
+                    PoisonedComponent currentPoison = player.getComponent(PoisonedComponent.class);
+                    if (currentPoison == null) {
+                        System.out.println("☣️ Player Poisoned!");
+                        player.add(new PoisonedComponent(poison.damagePerSecond, poison.duration));
+                    } else {
+                        currentPoison.timeRemaining = Math.max(currentPoison.timeRemaining, poison.duration);
+                    }
+                }
+
+                // 3. Destroy Projectile
+                queueRemoval(proj);
+            }
+        }
+    }
+    // ---------------------------------------------------
+
+    private void checkPlayerEnemyCollisions() {
+        PositionComponent playerPos = posMapper.get(player);
+        HealthComponent playerHealth = healthMapper.get(player);
+        float playerRadius = getEntityRadius(player);
+
+        Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
+        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
+
+        for (int i = 0; i < enemies.size(); ++i) {
+            Entity enemy = enemies.get(i);
+            if (entitiesToRemove.contains(enemy, true)) continue;
+            HealthComponent enemyHealth = healthMapper.get(enemy);
+            if (!enemyHealth.isAlive()) continue;
+            PositionComponent enemyPos = posMapper.get(enemy);
+            float enemyRadius = getEntityRadius(enemy);
+            if (playerPos.position.dst(enemyPos.position) < playerRadius + enemyRadius) {
+                EnemyComponent enemyComp = enemyMapper.get(enemy);
+                float dmg = (enemyComp != null) ? enemyComp.damage : 1f;
+                playerHealth.damage(dmg, player);
+            }
+        }
+    }
+
+    // ... (Rest of file unchanged: checkPlayerXPCollisions, checkPlayerHealthCollisions, etc.) ...
+
     private void spawnVisualEffect(Vector2 position, String textureName, float size, float duration) {
         Entity effect = new Entity();
         effect.add(new PositionComponent(position.x, position.y));
@@ -288,30 +378,6 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
-    // ... checkPlayerEnemyCollisions, checkPlayerXPCollisions, checkPlayerHealthCollisions, removeDeadEnemies ...
-    // These generally don't nest but safer to use indexed loops here too for consistency.
-
-    private void checkPlayerEnemyCollisions() {
-        PositionComponent playerPos = posMapper.get(player);
-        HealthComponent playerHealth = healthMapper.get(player);
-        float playerRadius = getEntityRadius(player);
-
-        Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
-        ImmutableArray<Entity> enemies = getEngine().getEntitiesFor(enemyFamily);
-
-        for (int i = 0; i < enemies.size(); ++i) {
-            Entity enemy = enemies.get(i);
-            if (entitiesToRemove.contains(enemy, true)) continue;
-            HealthComponent enemyHealth = healthMapper.get(enemy);
-            if (!enemyHealth.isAlive()) continue;
-            PositionComponent enemyPos = posMapper.get(enemy);
-            float enemyRadius = getEntityRadius(enemy);
-            if (playerPos.position.dst(enemyPos.position) < playerRadius + enemyRadius) {
-                playerHealth.damage(1f, player);
-            }
-        }
-    }
-
     private void checkPlayerXPCollisions() {
         PositionComponent playerPos = posMapper.get(player);
         PlayerComponent playerComp = playerMapper.get(player);
@@ -387,7 +453,6 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
-    // ... levelUp, spawnXPOrb, spawnHealthOrb, applySpellEffects (unchanged) ...
     private void levelUp(Entity player, PlayerComponent pc, HealthComponent health, VelocityComponent vel) {
         pc.level++;
         pc.xp -= pc.xpToNextLevel;
@@ -435,7 +500,6 @@ public class CollisionSystem extends EntitySystem {
         }
     }
 
-    // --- FIXED LOOP 3: Chain Logic (The Crash Cause) ---
     private void chainToNearbyEnemy(Entity sourceProjectile, Entity sourceEnemy) {
         ChainComponent chain = chainMapper.get(sourceProjectile);
         if (chain == null || chain.remainingChains <= 0) return;

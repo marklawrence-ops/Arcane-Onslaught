@@ -101,7 +101,7 @@ public class GameScreen implements Screen {
         // ... (Systems setup remains the same) ...
         engine.addSystem(new PlayerInputSystem(inputProcessor));
         engine.addSystem(new MovementSystem());
-        engine.addSystem(new AISystem());
+        engine.addSystem(new AISystem(enemyFactory));
         engine.addSystem(new SpellCastSystem(spellManager, playerBuild));
         engine.addSystem(new ProjectileSystem());
         engine.addSystem(new EnemySpawnSystem(enemyFactory));

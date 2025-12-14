@@ -1,23 +1,46 @@
 package com.arcane.onslaught.enemies;
 
+import com.arcane.onslaught.entities.components.*;
+import com.arcane.onslaught.entities.components.BossComponent.BossSkill;
+import com.arcane.onslaught.utils.TextureManager;
 import com.badlogic.ashley.core.Engine;
 import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
-import com.arcane.onslaught.entities.components.CollisionComponent;
-import com.arcane.onslaught.entities.components.VisualComponent; // Import this
-
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class EnemyFactory {
+    // ... (Existing Maps and Lists remain unchanged) ...
     private Map<String, EnemyType> enemyTypes;
+    private enum BossArchetype { TITAN, BERSERKER, SPEEDSTER, TANK }
+
+    private static final List<BossSkill> ELEMENTAL_SKILLS = Arrays.asList(
+        BossSkill.ELECTRIC_AURA, BossSkill.FROST_BREATH, BossSkill.FIRE_FLAMETHROWER,
+        BossSkill.POISON_SPIT, BossSkill.ARCANE_NOVA
+    );
+    private static final List<BossSkill> UTILITY_SKILLS = Arrays.asList(
+        BossSkill.SUMMON_MINIONS, BossSkill.DASH_ATTACK, BossSkill.TELEPORT_AMBUSH
+    );
+
+    // --- NEW: Pattern Enums ---
+    public enum SpawnPattern {
+        WALL_HORIZONTAL,
+        WALL_VERTICAL,
+        CIRCLE_ENCIRCLEMENT,
+        TRIANGLE_WEDGE
+    }
 
     public EnemyFactory() {
         enemyTypes = new HashMap<>();
         registerEnemyTypes();
     }
 
+    // ... (registerEnemyTypes, spawnBoss, spawnEnemy, spawnRandomEnemy, selectEnemyType, createScaledInstance remain same) ...
     private void registerEnemyTypes() {
         enemyTypes.put("zombie", new ZombieEnemy());
         enemyTypes.put("imp", new ImpEnemy());
@@ -30,35 +53,89 @@ public class EnemyFactory {
         enemyTypes.put("slime", new SlimeEnemy());
     }
 
+    public void spawnBoss(Engine engine, Vector2 position, int playerLevel) {
+        // ... (Keep your existing Boss Logic intact) ...
+        Entity boss = new Entity();
+        BossArchetype archetype = BossArchetype.values()[MathUtils.random(BossArchetype.values().length - 1)];
+        BossSkill elementalSkill = ELEMENTAL_SKILLS.get(MathUtils.random(ELEMENTAL_SKILLS.size() - 1));
+        BossSkill utilitySkill = UTILITY_SKILLS.get(MathUtils.random(UTILITY_SKILLS.size() - 1));
+        String bossTitle = archetype.name() + " (" + elementalSkill.name() + ")";
+
+        float baseHealth = 1200f + (playerLevel * 120f);
+        float baseSpeed = 55f;
+        float baseDamage = 25f;
+        float size = 90f;
+
+        switch (archetype) {
+            case TITAN: baseHealth *= 2.0f; baseSpeed *= 0.6f; size *= 1.3f; break;
+            case BERSERKER: baseHealth *= 0.8f; baseDamage *= 1.8f; baseSpeed *= 1.3f; break;
+            case SPEEDSTER: baseHealth *= 0.7f; baseSpeed *= 1.6f; break;
+            case TANK: baseHealth *= 1.5f; baseSpeed *= 0.5f; break;
+        }
+
+        TextureManager tm = TextureManager.getInstance();
+        String textureName = "boss_void";
+        Color tint = Color.WHITE;
+
+        switch (elementalSkill) {
+            case FIRE_FLAMETHROWER: textureName = "boss_fire"; tint = new Color(1f, 0.4f, 0.4f, 1f); break;
+            case FROST_BREATH: textureName = "boss_frost"; tint = new Color(0.4f, 0.8f, 1f, 1f); break;
+            case POISON_SPIT: textureName = "boss_poison"; tint = new Color(0.4f, 1f, 0.4f, 1f); break;
+            case ELECTRIC_AURA: textureName = "boss_electric"; tint = new Color(1f, 1f, 0.4f, 1f); break;
+            case ARCANE_NOVA: textureName = "boss_arcane"; tint = new Color(0.8f, 0.4f, 1f, 1f); break;
+        }
+
+        VisualComponent vis;
+        if (tm.hasTexture(textureName)) {
+            vis = new VisualComponent(size, size, tm.getTexture(textureName));
+            vis.color = Color.WHITE;
+        } else if (tm.hasTexture("boss_void")) {
+            vis = new VisualComponent(size, size, tm.getTexture("boss_void"));
+            vis.color = tint;
+        } else {
+            vis = new VisualComponent(size, size, tint);
+        }
+        vis.isFadingIn = true;
+        vis.fadeInDuration = 1.0f;
+        boss.add(vis);
+
+        boss.add(new PositionComponent(position.x, position.y));
+        boss.add(new VelocityComponent(baseSpeed));
+        boss.add(new HealthComponent(baseHealth));
+        boss.add(new EnemyComponent(baseDamage, 1500f));
+        boss.add(new CollisionComponent(size / 2.5f, (short)0, (short)0));
+        boss.add(new AIComponent());
+
+        BossComponent bossComp = new BossComponent("Void Lord", bossTitle);
+        bossComp.availableSkills.add(elementalSkill);
+        bossComp.availableSkills.add(utilitySkill);
+        boss.add(bossComp);
+
+        engine.addEntity(boss);
+        System.out.println("⚠️ BOSS SPAWNED: " + bossTitle);
+    }
+
     public Entity spawnEnemy(Engine engine, String typeId, Vector2 position, float difficultyMultiplier) {
         EnemyType type = enemyTypes.get(typeId);
         if (type != null) {
             EnemyType scaledType = createScaledInstance(typeId, difficultyMultiplier);
-
-            // 1. Create the Entity
             Entity enemy = scaledType.spawn(engine, position);
 
-            // --- NEW: Enable Fade In Effect ---
             VisualComponent vis = enemy.getComponent(VisualComponent.class);
             if (vis != null) {
                 vis.isFadingIn = true;
-                vis.fadeInDuration = 0.6f; // Fade in over 0.6 seconds
+                vis.fadeInDuration = 0.6f;
             }
-            // ----------------------------------
 
             float radius = 12f;
             switch (typeId) {
                 case "swarm": radius = 6f; break;
                 case "imp": radius = 10f; break;
-                case "runner": radius = 10f; break;
                 case "slime": radius = 10f; break;
-                case "zombie": radius = 12f; break;
-                case "ghost": radius = 12f; break;
-                case "brute": radius = 18f; break;
                 case "tank": radius = 20f; break;
+                case "brute": radius = 18f; break;
                 case "elite": radius = 22f; break;
             }
-
             enemy.add(new CollisionComponent(radius, (short)0, (short)0));
             return enemy;
         }
@@ -124,13 +201,54 @@ public class EnemyFactory {
         return type;
     }
 
-    public void spawnSwarm(Engine engine, Vector2 centerPosition, String enemyType, int count, float difficulty) {
-        for (int i = 0; i < count; i++) {
-            float angle = (360f / count) * i;
-            float radius = 30f;
-            Vector2 offset = new Vector2(radius, 0).rotateDeg(angle);
-            Vector2 spawnPos = new Vector2(centerPosition).add(offset);
-            spawnEnemy(engine, enemyType, spawnPos, difficulty);
+    // --- NEW: Pattern Spawning Logic ---
+    public void spawnPattern(Engine engine, Vector2 playerPos, SpawnPattern pattern, String enemyType, int count, float difficulty) {
+        float spacing = 40f;
+
+        switch (pattern) {
+            case WALL_HORIZONTAL:
+                float startX = playerPos.x - (count * spacing) / 2;
+                // Spawn above or below player randomly
+                float yPos = playerPos.y + (MathUtils.randomBoolean() ? 600f : -600f);
+                for (int i = 0; i < count; i++) {
+                    spawnEnemy(engine, enemyType, new Vector2(startX + i * spacing, yPos), difficulty);
+                }
+                break;
+
+            case WALL_VERTICAL:
+                float startY = playerPos.y - (count * spacing) / 2;
+                // Spawn left or right of player randomly
+                float xPos = playerPos.x + (MathUtils.randomBoolean() ? 1000f : -1000f);
+                for (int i = 0; i < count; i++) {
+                    spawnEnemy(engine, enemyType, new Vector2(xPos, startY + i * spacing), difficulty);
+                }
+                break;
+
+            case CIRCLE_ENCIRCLEMENT:
+                // Tight circle around player
+                float radius = 600f;
+                for (int i = 0; i < count; i++) {
+                    float angle = (360f / count) * i;
+                    Vector2 offset = new Vector2(radius, 0).rotateDeg(angle);
+                    spawnEnemy(engine, enemyType, new Vector2(playerPos).add(offset), difficulty);
+                }
+                break;
+
+            case TRIANGLE_WEDGE:
+                // Spawn a V-shape wedge aimed at player
+                Vector2 spawnOrigin = new Vector2(playerPos).add(MathUtils.random(-800, 800), MathUtils.random(-600, 600));
+                for (int i = 0; i < count; i++) {
+                    // Simple V formation logic
+                    float rowOffset = (i % 3) * spacing;
+                    float colOffset = (i / 3) * spacing;
+                    spawnEnemy(engine, enemyType, new Vector2(spawnOrigin.x + rowOffset, spawnOrigin.y + colOffset), difficulty);
+                }
+                break;
         }
+    }
+
+    // Keep old swarm for compatibility or boss minions
+    public void spawnSwarm(Engine engine, Vector2 centerPosition, String enemyType, int count, float difficulty) {
+        spawnPattern(engine, centerPosition, SpawnPattern.CIRCLE_ENCIRCLEMENT, enemyType, count, difficulty);
     }
 }

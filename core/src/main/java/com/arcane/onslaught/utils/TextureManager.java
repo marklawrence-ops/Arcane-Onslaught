@@ -75,6 +75,14 @@ public class TextureManager {
         loadTexture("elite", "sprites/enemies/elite.png");
         loadTexture("slime", "sprites/enemies/slime.png");
 
+        // Boss
+        textures.put("boss_fire", new Texture(Gdx.files.internal("textures/boss_fire.png")));
+        textures.put("boss_frost", new Texture(Gdx.files.internal("textures/boss_frost.png")));
+        textures.put("boss_poison", new Texture(Gdx.files.internal("textures/boss_poison.png")));
+        textures.put("boss_arcane", new Texture(Gdx.files.internal("textures/boss_arcane.png")));
+        textures.put("boss_electric", new Texture(Gdx.files.internal("textures/boss_electric.png")));
+        textures.put("boss_void", new Texture(Gdx.files.internal("textures/boss_void.png"))); // Default
+
         // Spells (Add these if you have them, otherwise fallback will be used)
         loadTexture("fireball", "sprites/spells/fireball.png");
         loadTexture("ice_shard", "sprites/spells/ice_shard.png");
