@@ -114,7 +114,7 @@ public class EnemyFactory {
             vis = new VisualComponent(size, size, tint);
         }
         vis.isFadingIn = true;
-        vis.fadeInDuration = 2.0f;
+        vis.fadeInDuration = 2.6f;
         boss.add(vis);
 
         boss.add(new PositionComponent(position.x, position.y));
@@ -143,7 +143,7 @@ public class EnemyFactory {
             VisualComponent vis = enemy.getComponent(VisualComponent.class);
             if (vis != null) {
                 vis.isFadingIn = true;
-                vis.fadeInDuration = 0.6f;
+                vis.fadeInDuration = 1.6f;
             }
 
             float radius = 12f;
@@ -225,20 +225,23 @@ public class EnemyFactory {
         switch (pattern) {
             case WALL_HORIZONTAL:
                 float startX = playerPos.x - (count * spacing) / 2;
-                float yPos = playerPos.y + (MathUtils.randomBoolean() ? 600f : -600f);
+                // Spawn strictly above or below the visible area relative to player
+                float yPos = playerPos.y + (MathUtils.randomBoolean() ? 800f : -800f);
                 for (int i = 0; i < count; i++) {
                     spawnEnemy(engine, enemyType, new Vector2(startX + i * spacing, yPos), difficulty);
                 }
                 break;
             case WALL_VERTICAL:
                 float startY = playerPos.y - (count * spacing) / 2;
+                // Spawn strictly left or right
                 float xPos = playerPos.x + (MathUtils.randomBoolean() ? 1000f : -1000f);
                 for (int i = 0; i < count; i++) {
                     spawnEnemy(engine, enemyType, new Vector2(xPos, startY + i * spacing), difficulty);
                 }
                 break;
             case CIRCLE_ENCIRCLEMENT:
-                float radius = 600f;
+                // Ensure radius is large enough to be off-screen or at least not instant death
+                float radius = 700f;
                 for (int i = 0; i < count; i++) {
                     float angle = (360f / count) * i;
                     Vector2 offset = new Vector2(radius, 0).rotateDeg(angle);
@@ -246,7 +249,13 @@ public class EnemyFactory {
                 }
                 break;
             case TRIANGLE_WEDGE:
-                Vector2 spawnOrigin = new Vector2(playerPos).add(MathUtils.random(-800, 800), MathUtils.random(-600, 600));
+                // Ensure the wedge origin is far away (min 600 units)
+                Vector2 spawnOffset = new Vector2(MathUtils.randomBoolean() ? 1 : -1, 0)
+                    .setToRandomDirection()
+                    .scl(MathUtils.random(700f, 900f));
+
+                Vector2 spawnOrigin = new Vector2(playerPos).add(spawnOffset);
+
                 for (int i = 0; i < count; i++) {
                     float rowOffset = (i % 3) * spacing;
                     float colOffset = (i / 3) * spacing;

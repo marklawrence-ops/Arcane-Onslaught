@@ -12,7 +12,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.utils.Align; // Import Align
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.math.Rectangle;
@@ -32,7 +32,6 @@ public class UpgradeScreen implements Screen {
     private SpriteBatch batch;
     private ShapeRenderer shapeRenderer;
 
-    // Fonts
     private BitmapFont titleFont;
     private BitmapFont font;
     private BitmapFont smallFont;
@@ -45,6 +44,10 @@ public class UpgradeScreen implements Screen {
 
     private Vector3 touchPoint;
     private Rectangle[] cardBounds;
+
+    // --- LAYOUT CONSTANTS ---
+    private final int MAX_CARDS = 5;
+    // ------------------------
 
     public UpgradeScreen(Game game, GameScreen gameScreen, List<Upgrade> upgradeOptions) {
         this.game = game;
@@ -67,11 +70,11 @@ public class UpgradeScreen implements Screen {
 
         FontManager.getInstance().load();
         titleFont = FontManager.getInstance().generateFont(72, Color.GOLD);
-        font = FontManager.getInstance().generateFont(32, Color.WHITE);
-        smallFont = FontManager.getInstance().generateFont(24, Color.LIGHT_GRAY);
+        font = FontManager.getInstance().generateFont(24, Color.WHITE); // Slightly smaller for 5 cards
+        smallFont = FontManager.getInstance().generateFont(20, Color.LIGHT_GRAY);
 
-        cardBounds = new Rectangle[3];
-        for(int i=0; i<3; i++) cardBounds[i] = new Rectangle();
+        cardBounds = new Rectangle[MAX_CARDS];
+        for(int i=0; i<MAX_CARDS; i++) cardBounds[i] = new Rectangle();
 
         SoundManager.getInstance().play("levelup", 1.0f);
     }
@@ -100,16 +103,16 @@ public class UpgradeScreen implements Screen {
         batch.begin();
 
         layout.setText(titleFont, "LEVEL UP!");
-        titleFont.draw(batch, "LEVEL UP!", (Constants.SCREEN_WIDTH - layout.width)/2, Constants.SCREEN_HEIGHT - 80f);
+        titleFont.draw(batch, "LEVEL UP!", (Constants.SCREEN_WIDTH - layout.width)/2, Constants.SCREEN_HEIGHT - 50f);
 
         layout.setText(font, "Choose an upgrade:");
         font.setColor(Color.WHITE);
-        font.draw(batch, "Choose an upgrade:", (Constants.SCREEN_WIDTH - layout.width)/2, Constants.SCREEN_HEIGHT - 160f);
+        font.draw(batch, "Choose an upgrade:", (Constants.SCREEN_WIDTH - layout.width)/2, Constants.SCREEN_HEIGHT - 120f);
 
         drawUpgradeText();
 
         smallFont.setColor(Color.LIGHT_GRAY);
-        smallFont.draw(batch, "1, 2, 3 - Select    ENTER - Confirm", 50f, 50f);
+        smallFont.draw(batch, "1-5 Select    ENTER Confirm", 50f, 50f);
 
         batch.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
@@ -123,10 +126,19 @@ public class UpgradeScreen implements Screen {
     }
 
     private void drawUpgradeBoxes() {
-        float boxWidth = 350f;
-        float boxHeight = 220f;
-        float spacing = 30f;
-        float startX = (Constants.SCREEN_WIDTH - (boxWidth * 3 + spacing * 2)) / 2f;
+        // --- NEW DIMENSIONS FOR 5 CARDS ---
+        // Total Width available ~1280.
+        // 5 cards * 220 width = 1100.
+        // 4 gaps * 20 spacing = 80.
+        // Total used = 1180. Fits comfortably.
+        float boxWidth = 220f;
+        float boxHeight = 350f; // Taller to fit text
+        float spacing = 20f;
+
+        // Dynamic centering based on actual count (in case only 3 upgrades are available)
+        int count = Math.min(upgradeOptions.size(), MAX_CARDS);
+        float totalRowWidth = (count * boxWidth) + ((count - 1) * spacing);
+        float startX = (Constants.SCREEN_WIDTH - totalRowWidth) / 2f;
         float y = Constants.SCREEN_HEIGHT / 2f - boxHeight / 2f;
 
         camera.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
@@ -136,7 +148,7 @@ public class UpgradeScreen implements Screen {
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        for (int i = 0; i < upgradeOptions.size() && i < 3; i++) {
+        for (int i = 0; i < count; i++) {
             float x = startX + i * (boxWidth + spacing);
             cardBounds[i].set(x, y, boxWidth, boxHeight);
 
@@ -157,7 +169,7 @@ public class UpgradeScreen implements Screen {
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         Gdx.gl.glLineWidth(3);
-        for (int i = 0; i < upgradeOptions.size() && i < 3; i++) {
+        for (int i = 0; i < count; i++) {
             float x = startX + i * (boxWidth + spacing);
             shapeRenderer.setColor(getRarityColor(upgradeOptions.get(i).getRarity()));
             shapeRenderer.rect(x, y, boxWidth, boxHeight);
@@ -168,40 +180,41 @@ public class UpgradeScreen implements Screen {
     }
 
     private void drawUpgradeText() {
-        float boxWidth = 350f;
-        float spacing = 30f;
-        float startX = (Constants.SCREEN_WIDTH - (boxWidth * 3 + spacing * 2)) / 2f;
+        float boxWidth = 220f;
+        float boxHeight = 350f;
+        float spacing = 20f;
 
-        // Define exact text areas
-        float cardY = Constants.SCREEN_HEIGHT / 2f - 220f / 2f;
-        float topPadding = 20f;
-        float sidePadding = 20f;
-        float nameY = cardY + 220f - topPadding; // Top of card
-        float descY = nameY - 60f; // Below name
+        int count = Math.min(upgradeOptions.size(), MAX_CARDS);
+        float totalRowWidth = (count * boxWidth) + ((count - 1) * spacing);
+        float startX = (Constants.SCREEN_WIDTH - totalRowWidth) / 2f;
 
-        for (int i = 0; i < upgradeOptions.size() && i < 3; i++) {
+        float cardY = Constants.SCREEN_HEIGHT / 2f - boxHeight / 2f;
+        float nameY = cardY + boxHeight - 20f;
+        float descY = nameY - 70f; // More space for title wrapping
+
+        for (int i = 0; i < count; i++) {
             float x = startX + i * (boxWidth + spacing);
             Upgrade upgrade = upgradeOptions.get(i);
             Color rarityColor = getRarityColor(upgrade.getRarity());
 
             // 1. Number
             font.setColor(Color.WHITE);
-            font.draw(batch, String.valueOf(i + 1), x + sidePadding, nameY);
+            font.draw(batch, String.valueOf(i + 1), x + 10f, nameY);
 
-            // 2. Name (Wrapped)
+            // 2. Name
             font.setColor(rarityColor);
-            float nameWidth = boxWidth - 60f; // Width minus number and padding
-            // Use native LibGDX wrapping
-            font.draw(batch, upgrade.getName(), x + 50f, nameY, nameWidth, Align.topLeft, true);
+            float nameWidth = boxWidth - 40f;
+            font.draw(batch, upgrade.getName(), x + 30f, nameY, nameWidth, Align.topLeft, true);
 
-            // 3. Description (Wrapped)
+            // 3. Description
             smallFont.setColor(Color.LIGHT_GRAY);
-            float descWidth = boxWidth - 40f;
-            smallFont.draw(batch, upgrade.getDescription(), x + 20f, descY, descWidth, Align.topLeft, true);
+            float descWidth = boxWidth - 30f;
+            smallFont.draw(batch, upgrade.getDescription(), x + 15f, descY, descWidth, Align.topLeft, true);
 
-            // 4. Rarity
+            // 4. Rarity (Bottom Center)
             smallFont.setColor(rarityColor);
-            smallFont.draw(batch, upgrade.getRarity().toString(), x + 20f, cardY + 40f);
+            layout.setText(smallFont, upgrade.getRarity().toString());
+            smallFont.draw(batch, upgrade.getRarity().toString(), x + (boxWidth - layout.width)/2, cardY + 30f);
         }
     }
 
@@ -216,9 +229,13 @@ public class UpgradeScreen implements Screen {
     }
 
     private void handleInput() {
+        // --- ADDED KEYS FOR 4 AND 5 ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) selectedIndex = 0;
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2) && upgradeOptions.size() > 1) selectedIndex = 1;
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3) && upgradeOptions.size() > 2) selectedIndex = 2;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4) && upgradeOptions.size() > 3) selectedIndex = 3;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5) && upgradeOptions.size() > 4) selectedIndex = 4;
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT)) selectedIndex = Math.max(0, selectedIndex - 1);
         if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) selectedIndex = Math.min(upgradeOptions.size() - 1, selectedIndex + 1);
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) && selectedIndex < upgradeOptions.size()) selectUpgrade(upgradeOptions.get(selectedIndex));

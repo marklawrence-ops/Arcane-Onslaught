@@ -178,7 +178,7 @@ public class AISystem extends IteratingSystem {
                 // Effect happens during 'isCasting' state update loop
                 SoundManager.getInstance().play("teleport", 0.8f);
                 boss.isCasting = true;
-                boss.castTimer = 2.0f; // Pull for 2 seconds
+                boss.castTimer = 0.7f; // Pull for 2 seconds
                 break;
 
             case BERSERK:
@@ -218,41 +218,41 @@ public class AISystem extends IteratingSystem {
                     spawnBossProjectile(bossPos, (360f / bullets) * i, "arcane_missile", Color.PURPLE);
                 }
                 boss.isCasting = true;
-                boss.castTimer = 1.0f;
+                boss.castTimer = 0.6f;
                 break;
 
             case FIRE_FLAMETHROWER:
                 float baseAngle = new Vector2(playerPosVec).sub(bossPos).angleDeg();
-                for (int i = -2; i <= 2; i++) {
+                for (int i = -10; i <= 10; i++) {
                     spawnBossProjectile(bossPos, baseAngle + (i * 10), "fireball", Color.ORANGE);
                 }
                 boss.isCasting = true;
-                boss.castTimer = 1.0f;
+                boss.castTimer = 0.4f;
                 break;
 
             case FROST_BREATH:
                 float frostAngle = new Vector2(playerPosVec).sub(bossPos).angleDeg();
-                for (int i = -3; i <= 3; i++) {
+                for (int i = -5; i <= 5; i++) {
                     Entity proj = spawnBossProjectile(bossPos, frostAngle + (i * 8), "ice_shard", Color.CYAN);
-                    proj.add(new SlowComponent(0.5f, 2.0f));
+                    proj.add(new SlowComponent(1.5f, 2.0f));
                 }
                 boss.isCasting = true;
-                boss.castTimer = 1.0f;
+                boss.castTimer = 0.5f;
                 break;
 
             case POISON_SPIT:
                 Entity proj = spawnBossProjectile(bossPos, new Vector2(playerPosVec).sub(bossPos).angleDeg(), "poison", Color.GREEN);
                 proj.add(new PoisonComponent(10f, 5.0f));
                 boss.isCasting = true;
-                boss.castTimer = 0.5f;
+                boss.castTimer = 0.2f;
                 break;
 
             case ELECTRIC_AURA:
-                for (int i = 0; i < 8; i++) {
-                    spawnBossProjectile(bossPos, (360f / 8) * i, "lightning", Color.YELLOW);
+                for (int i = 0; i < 20; i++) {
+                    spawnBossProjectile(bossPos, (360f / 20) * i, "lightning", Color.YELLOW);
                 }
                 boss.isCasting = true;
-                boss.castTimer = 1.0f;
+                boss.castTimer = 0.1f;
                 break;
         }
     }

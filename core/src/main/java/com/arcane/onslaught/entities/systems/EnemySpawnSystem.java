@@ -71,8 +71,6 @@ public class EnemySpawnSystem extends EntitySystem {
             Entity player = players.get(0);
             PlayerComponent pc = playerMapper.get(player);
 
-            // --- STRICT CHECK ---
-            // Ensure we haven't already processed this level threshold
             if (pc.level > 0 && pc.level % 5 == 0 && pc.level > lastBossLevel) {
                 lastBossLevel = pc.level;
                 triggerBossEvent(pc.level);
@@ -82,19 +80,18 @@ public class EnemySpawnSystem extends EntitySystem {
 
     private void triggerBossEvent(int level) {
         SoundManager.getInstance().play("spawn_breach", 1.0f);
-        Vector2 spawnPos = getRandomEdgePosition();
 
-        // 1. Spawn Primary Boss
+        // --- FIX: Ensure Boss spawns FAR away ---
+        Vector2 spawnPos = getRandomEdgePosition(200f); // 200px buffer outside screen
+
         factory.spawnBoss(getEngine(), spawnPos, level);
 
-        // 2. Spawn Secondary Boss ONLY if Level >= 40
         if (level >= 40) {
             Vector2 secondPos = new Vector2(spawnPos).add(150, 0);
             factory.spawnBoss(getEngine(), secondPos, level);
             System.out.println("⚠️ DOUBLE BOSS EVENT!");
         }
 
-        // 3. Spawn Minions
         factory.spawnSwarm(getEngine(), spawnPos, "imp", 4, difficulty);
         System.out.println(">>> BOSS WAVE STARTED (Level " + level + ") <<<");
     }
@@ -114,12 +111,19 @@ public class EnemySpawnSystem extends EntitySystem {
         if (difficulty > 3.0f) enemyType = "tank";
         if (difficulty > 5.0f) enemyType = "elite";
 
+        // --- FIX: Don't spawn patterns ON TOP of player ---
+        // Pass a modified position or ensure factory handles logic to not spawn on player
+        // For patterns like "Circle", we actually want them around the player, but at a distance.
+        // The factory handles the offset, so we pass playerPos directly.
         factory.spawnPattern(getEngine(), playerPos, pattern, enemyType, count, difficulty);
+
         SoundManager.getInstance().play("spawn_breach", 0.8f);
     }
 
     private void spawnEnemies() {
-        Vector2 spawnPos = getRandomEdgePosition();
+        // --- FIX: Standard enemies spawn 50px outside screen ---
+        Vector2 spawnPos = getRandomEdgePosition(50f);
+
         float swarmChance = Math.min(0.3f, difficulty * 0.05f);
         if (MathUtils.random() < swarmChance) {
             int count = 3 + MathUtils.random(2);
@@ -129,15 +133,39 @@ public class EnemySpawnSystem extends EntitySystem {
         }
     }
 
-    private Vector2 getRandomEdgePosition() {
+    // --- UPDATED: Accepts a buffer distance ---
+    private Vector2 getRandomEdgePosition(float buffer) {
         int edge = MathUtils.random(3);
         float x, y;
+
+        float minX = Constants.ARENA_OFFSET_X - buffer;
+        float maxX = Constants.ARENA_OFFSET_X + Constants.ARENA_WIDTH + buffer;
+        float minY = Constants.ARENA_OFFSET_Y - buffer;
+        float maxY = Constants.ARENA_OFFSET_Y + Constants.ARENA_HEIGHT + buffer;
+
         switch (edge) {
-            case 0: x = MathUtils.random(Constants.ARENA_OFFSET_X, Constants.ARENA_OFFSET_X + Constants.ARENA_WIDTH); y = Constants.ARENA_OFFSET_Y + Constants.ARENA_HEIGHT; break;
-            case 1: x = Constants.ARENA_OFFSET_X + Constants.ARENA_WIDTH; y = MathUtils.random(Constants.ARENA_OFFSET_Y, Constants.ARENA_OFFSET_Y + Constants.ARENA_HEIGHT); break;
-            case 2: x = MathUtils.random(Constants.ARENA_OFFSET_X, Constants.ARENA_OFFSET_X + Constants.ARENA_WIDTH); y = Constants.ARENA_OFFSET_Y; break;
-            default: x = Constants.ARENA_OFFSET_X; y = MathUtils.random(Constants.ARENA_OFFSET_Y, Constants.ARENA_OFFSET_Y + Constants.ARENA_HEIGHT); break;
+            case 0: // Top
+                x = MathUtils.random(minX, maxX);
+                y = maxY;
+                break;
+            case 1: // Right
+                x = maxX;
+                y = MathUtils.random(minY, maxY);
+                break;
+            case 2: // Bottom
+                x = MathUtils.random(minX, maxX);
+                y = minY;
+                break;
+            default: // Left
+                x = minX;
+                y = MathUtils.random(minY, maxY);
+                break;
         }
         return new Vector2(x, y);
+    }
+
+    // Overload for backward compatibility if needed, though we updated calls above
+    private Vector2 getRandomEdgePosition() {
+        return getRandomEdgePosition(50f);
     }
 }

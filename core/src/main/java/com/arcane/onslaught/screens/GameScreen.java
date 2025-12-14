@@ -318,7 +318,7 @@ public class GameScreen implements Screen {
     }
 
     private void showUpgradeScreen() {
-        java.util.List<Upgrade> upgrades = upgradePool.getRandomUpgrades(playerBuild, spellManager, 3);
+        java.util.List<Upgrade> upgrades = upgradePool.getRandomUpgrades(playerBuild, spellManager, 5);
         if (!upgrades.isEmpty()) {
             game.setScreen(new UpgradeScreen(game, this, upgrades));
         }
