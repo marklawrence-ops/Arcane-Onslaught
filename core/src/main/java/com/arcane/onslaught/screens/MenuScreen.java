@@ -1,6 +1,6 @@
 package com.arcane.onslaught.screens;
 
-import com.arcane.onslaught.utils.HighscoreManager; // Import
+import com.arcane.onslaught.utils.HighscoreManager;
 import com.arcane.onslaught.utils.SoundManager;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
@@ -30,7 +30,7 @@ public class MenuScreen implements Screen {
     private BitmapFont titleFont;
     private BitmapFont subtitleFont;
     private BitmapFont font;
-    private BitmapFont smallFont; // Added for highscore text
+    private BitmapFont smallFont;
     private ShapeRenderer shapeRenderer;
     private GlyphLayout layout;
 
@@ -38,12 +38,18 @@ public class MenuScreen implements Screen {
     private Particle[] particles;
 
     private Vector3 touchPoint;
+
+    // --- BUTTON BOUNDS ---
     private Rectangle startBounds;
     private Rectangle settingsBounds;
-    private Rectangle almanacBounds;
+    private Rectangle almanacBounds; // Optional if you added Almanac
+    private Rectangle quitBounds;    // --- NEW: Quit Button ---
+
+    // --- HOVER STATES ---
     private boolean startHover = false;
     private boolean settingsHover = false;
     private boolean almanacHover = false;
+    private boolean quitHover = false; // --- NEW ---
 
     private static class Particle {
         float x, y, vx, vy, size;
@@ -90,14 +96,18 @@ public class MenuScreen implements Screen {
         titleFont = generateFont("fonts/DungeonFont.ttf", 80, new Color(0.3f, 0.8f, 1f, 1f));
         subtitleFont = generateFont("fonts/DungeonFont.ttf", 40, new Color(1f, 0.5f, 1f, 1f));
         font = generateFont("fonts/DungeonFont.ttf", 40, Color.WHITE);
-        smallFont = generateFont("fonts/DungeonFont.ttf", 24, Color.GOLD); // Highscore font
+        smallFont = generateFont("fonts/DungeonFont.ttf", 24, Color.GOLD);
 
         float centerX = Constants.SCREEN_WIDTH / 2f;
         float centerY = Constants.SCREEN_HEIGHT / 2f;
 
+        // --- DEFINE BUTTON AREAS ---
         startBounds = new Rectangle(centerX - 150, centerY - 20, 300, 50);
         settingsBounds = new Rectangle(centerX - 100, centerY - 80, 200, 50);
         almanacBounds = new Rectangle(centerX - 100, centerY - 140, 200, 50);
+
+        // --- NEW: Quit Button Position (Below Almanac/Settings) ---
+        quitBounds = new Rectangle(centerX - 100, centerY - 200, 200, 50);
 
         particles = new Particle[100];
         for (int i = 0; i < particles.length; i++) {
@@ -166,33 +176,40 @@ public class MenuScreen implements Screen {
         layout.setText(subtitleFont, "Survive the Endless Horde");
         subtitleFont.draw(batch, "Survive the Endless Horde", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT - 250f);
 
-        // --- NEW: Highscore Display ---
         String bestRun = "BEST RUN\nLevel: " + HighscoreManager.getBestLevel() + "\nTime: " + HighscoreManager.formatTime(HighscoreManager.getBestTime());
         layout.setText(smallFont, bestRun);
         smallFont.draw(batch, bestRun, Constants.SCREEN_WIDTH - layout.width - 20, Constants.SCREEN_HEIGHT - 20);
-        // ------------------------------
 
+        // --- 1. START GAME ---
         float pulse = 1.0f + 0.1f * (float)Math.sin(time * 3);
         font.getData().setScale(pulse);
         font.setColor(startHover ? Color.YELLOW : new Color(0.3f, 1f, 0.3f, 1f));
         layout.setText(font, "START GAME");
         font.draw(batch, "START GAME", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f + 20);
 
+        // --- 2. SETTINGS ---
         font.getData().setScale(1f);
         font.setColor(settingsHover ? Color.YELLOW : Color.WHITE);
         layout.setText(font, "SETTINGS");
         font.draw(batch, "SETTINGS", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 40);
 
+        // --- 3. ALMANAC ---
         font.setColor(almanacHover ? Color.YELLOW : Color.WHITE);
         layout.setText(font, "ALMANAC");
         font.draw(batch, "ALMANAC", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 100);
+
+        // --- 4. NEW: QUIT BUTTON ---
+        font.setColor(quitHover ? Color.RED : Color.GRAY); // Red on hover to indicate danger/exit
+        layout.setText(font, "QUIT");
+        font.draw(batch, "QUIT", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT / 2f - 160);
+        // ---------------------------
 
         font.getData().setScale(0.7f);
         font.setColor(new Color(0.7f, 0.7f, 0.7f, 0.8f));
         font.draw(batch, "Controls:\nWASD - Move\nESC - Pause\nSpells cast automatically", 50f, 250f);
 
         font.setColor(new Color(0.5f, 0.5f, 0.5f, 0.6f));
-        font.draw(batch, "v1.5 - Roguelike Survivor", 20f, 30f);
+        font.draw(batch, "v1.6 - Roguelike Survivor", 20f, 30f);
 
         batch.end();
         handleInput();
@@ -201,19 +218,27 @@ public class MenuScreen implements Screen {
     private void handleInput() {
         camera.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
 
+        // Start Hover
         boolean nowStart = startBounds.contains(touchPoint.x, touchPoint.y);
         if (nowStart && !startHover) SoundManager.getInstance().play("ui_hover");
         startHover = nowStart;
 
+        // Settings Hover
         boolean nowSettings = settingsBounds.contains(touchPoint.x, touchPoint.y);
         if (nowSettings && !settingsHover) SoundManager.getInstance().play("ui_hover");
         settingsHover = nowSettings;
 
+        // Almanac Hover
         boolean nowAlmanac = almanacBounds.contains(touchPoint.x, touchPoint.y);
         if (nowAlmanac && !almanacHover) SoundManager.getInstance().play("ui_hover");
         almanacHover = nowAlmanac;
 
+        // Quit Hover
+        boolean nowQuit = quitBounds.contains(touchPoint.x, touchPoint.y);
+        if (nowQuit && !quitHover) SoundManager.getInstance().play("ui_hover");
+        quitHover = nowQuit;
 
+        // Click Handling
         if (Gdx.input.justTouched()) {
             if (startHover) {
                 SoundManager.getInstance().play("ui_click");
@@ -221,14 +246,24 @@ public class MenuScreen implements Screen {
             } else if (settingsHover) {
                 SoundManager.getInstance().play("ui_click");
                 game.setScreen(new SettingsScreen(game, this));
-            } else if (almanacHover){
+            } else if (almanacHover) {
                 SoundManager.getInstance().play("ui_click");
                 game.setScreen(new AlmanacScreen(game, this));
+            } else if (quitHover) {
+                // --- QUIT LOGIC ---
+                SoundManager.getInstance().play("ui_click");
+                Gdx.app.exit(); // Closes the application
             }
         }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
             SoundManager.getInstance().play("ui_click");
             game.setScreen(new GameScreen(game));
+        }
+
+        // Optional: Escape to Quit from Main Menu
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            Gdx.app.exit();
         }
     }
 
