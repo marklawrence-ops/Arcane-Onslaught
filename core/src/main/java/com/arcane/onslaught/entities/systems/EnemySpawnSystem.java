@@ -81,13 +81,13 @@ public class EnemySpawnSystem extends EntitySystem {
         spawnInterval = Constants.ENEMY_SPAWN_INTERVAL / (1f + (difficulty - 1f) * 0.4f);
 
         // --- 2. NEW: Player Level Scaling (Level 30+) ---
-        if (currentPlayerLevel >= 20) {
+        if (currentPlayerLevel >= 10) {
             // Calculate how many levels past 30 we are
-            int levelsPast = currentPlayerLevel - 30;
+            int levelsPast = currentPlayerLevel - 10;
 
             // Decrease spawn interval by 5% for every level past 30
             // Example: Level 40 = 1.5x spawn rate
-            float levelMultiplier = 1.0f + (levelsPast * 0.05f);
+            float levelMultiplier = 2.0f + (levelsPast * 0.05f);
 
             spawnInterval = spawnInterval / levelMultiplier;
         }
