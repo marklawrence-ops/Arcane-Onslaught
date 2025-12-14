@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.BitmapFont; // --- NEW ---
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -24,6 +25,7 @@ import com.arcane.onslaught.spells.*;
 import com.arcane.onslaught.enemies.*;
 import com.arcane.onslaught.upgrades.*;
 import com.arcane.onslaught.utils.*;
+import com.badlogic.gdx.graphics.g2d.NinePatch;
 
 public class GameScreen implements Screen {
 
@@ -35,6 +37,8 @@ public class GameScreen implements Screen {
 
     private SpriteBatch mainBatch;
     private SpriteBatch damageBatch;
+    private SpriteBatch uiBatch; // --- NEW: Batch for Text ---
+    private NinePatch borderPatch;
 
     private Entity player;
     private float gameTime = 0;
@@ -48,8 +52,8 @@ public class GameScreen implements Screen {
     private boolean isPaused = false;
     private float pulseTimer = 0f;
 
-    // --- NEW: Debug System ---
     private DebugRenderSystem debugSystem;
+    private BitmapFont hudFont; // --- NEW: Font ---
 
     public GameScreen(Game game) {
         this.game = game;
@@ -60,7 +64,16 @@ public class GameScreen implements Screen {
         if (engine != null) return;
 
         TextureManager.getInstance().loadTextures();
+        Texture borderTex = TextureManager.getInstance().getTexture("border");
+        if (borderTex != null) {
+            // 16 is the pixel size of the corners/edges in the image we generated
+            borderPatch = new NinePatch(borderTex, 80, 80, 80, 80);
+        }
+
         SoundManager.getInstance().loadSounds();
+        FontManager.getInstance().load(); // --- NEW: Load Fonts ---
+
+        SoundManager.getInstance().playMusic("abyss");
 
         camera = new OrthographicCamera();
         viewport = new FitViewport(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, camera);
@@ -71,6 +84,10 @@ public class GameScreen implements Screen {
         shapeRenderer = new ShapeRenderer();
         mainBatch = new SpriteBatch();
         damageBatch = new SpriteBatch();
+        uiBatch = new SpriteBatch(); // --- NEW ---
+
+        // --- NEW: Generate HUD Font ---
+        hudFont = FontManager.getInstance().generateFont(24, Color.WHITE);
 
         engine = new Engine();
         spellManager = new SpellManager();
@@ -81,6 +98,7 @@ public class GameScreen implements Screen {
         inputProcessor = new GameInputProcessor();
         Gdx.input.setInputProcessor(inputProcessor);
 
+        // ... (Systems setup remains the same) ...
         engine.addSystem(new PlayerInputSystem(inputProcessor));
         engine.addSystem(new MovementSystem());
         engine.addSystem(new AISystem());
@@ -95,7 +113,6 @@ public class GameScreen implements Screen {
 
         engine.addSystem(new RenderSystem(shapeRenderer, mainBatch, camera));
 
-        // --- ADD DEBUG SYSTEM ---
         debugSystem = new DebugRenderSystem(camera, shapeRenderer);
         engine.addSystem(debugSystem);
 
@@ -110,6 +127,7 @@ public class GameScreen implements Screen {
         setupEventListeners();
     }
 
+    // ... (createPlayer and setupEventListeners remain the same) ...
     private void createPlayer() {
         player = new Entity();
         float startX = Constants.SCREEN_WIDTH / 2f;
@@ -122,16 +140,11 @@ public class GameScreen implements Screen {
         } else {
             player.add(new VisualComponent(Constants.PLAYER_SIZE, Constants.PLAYER_SIZE, Color.CYAN));
         }
-
         player.add(new SpawningComponent(2.0f));
         VisualComponent vis = player.getComponent(VisualComponent.class);
-        if (vis != null && vis.sprite != null) {
-            vis.sprite.setAlpha(0f);
-        }
-
-        // --- NEW: Tight Hitbox ---
+        vis.isBobbing = true; // Enable the animation
+        if (vis != null && vis.sprite != null) vis.sprite.setAlpha(0f);
         player.add(new CollisionComponent(8f, (short)0, (short)0));
-
         player.add(new HealthComponent(Constants.PLAYER_MAX_HEALTH));
         PlayerComponent pc = new PlayerComponent();
         pc.xp = 0;
@@ -162,29 +175,22 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
+        // ... (Input handling: F11, F1, F3, TAB, ESC remains the same) ...
         if (Gdx.input.isKeyJustPressed(Input.Keys.F11)) {
-            if (Gdx.graphics.isFullscreen()) {
-                Gdx.graphics.setWindowedMode((int)Constants.SCREEN_WIDTH, (int)Constants.SCREEN_HEIGHT);
-            } else {
-                Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-            }
+            if (Gdx.graphics.isFullscreen()) Gdx.graphics.setWindowedMode((int)Constants.SCREEN_WIDTH, (int)Constants.SCREEN_HEIGHT);
+            else Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
         }
-
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
             game.setScreen(new CheatMenuScreen(game, this, player, playerBuild, spellManager, upgradePool));
             return;
         }
-
-        // --- NEW: Toggle Debug ---
         if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
             debugSystem.isDebugMode = !debugSystem.isDebugMode;
         }
-
         if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
             game.setScreen(new StatsScreen(game, this, player, playerBuild, spellManager));
             return;
         }
-
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) && !isGameOver) {
             game.setScreen(new PauseScreen(game, this));
             return;
@@ -199,64 +205,56 @@ public class GameScreen implements Screen {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
+        // 1. Draw Background
         drawBackground();
 
+        // 2. Draw Border (MOVED HERE)
+        // We draw the border NOW so it sits behind the entities and UI
+        mainBatch.setProjectionMatrix(camera.combined);
+        mainBatch.begin();
+
+        if (borderPatch != null) {
+            borderPatch.draw(mainBatch,
+                Constants.ARENA_OFFSET_X - 16,
+                Constants.ARENA_OFFSET_Y - 16,
+                Constants.ARENA_WIDTH + 32,
+                Constants.ARENA_HEIGHT + 32
+            );
+        }
+        mainBatch.end();
+
+        // 3. Update Engine (Draws Players, Enemies, and UI Bars ON TOP of Border)
         if (!isGameOver && !isPaused) {
             gameTime += delta;
             pulseTimer += delta;
             mainBatch.setProjectionMatrix(camera.combined);
             damageBatch.setProjectionMatrix(camera.combined);
             engine.update(delta);
+        } else {
+            // Optional: If paused, you might still want to draw the scene without updating logic
+            // engine.getSystem(RenderSystem.class).update(0);
+            // engine.getSystem(UISystem.class).update(0);
         }
 
-        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        float pulse = 0.5f + 0.3f * (float)Math.sin(pulseTimer * 2f);
-        Gdx.gl.glLineWidth(6);
-        shapeRenderer.setColor(0f, 1f, 1f, pulse * 0.5f);
-        shapeRenderer.rect(Constants.ARENA_OFFSET_X - 2, Constants.ARENA_OFFSET_Y - 2, Constants.ARENA_WIDTH + 4, Constants.ARENA_HEIGHT + 4);
-        Gdx.gl.glLineWidth(2);
-        shapeRenderer.setColor(Color.CYAN);
-        shapeRenderer.rect(Constants.ARENA_OFFSET_X, Constants.ARENA_OFFSET_Y, Constants.ARENA_WIDTH, Constants.ARENA_HEIGHT);
-        shapeRenderer.end();
+        // 4. Draw HUD Text (Timer)
+        drawHUD();
 
-        // Inside render()
+        // ... (Revive logic remains the same) ...
         if (!isGameOver) {
             HealthComponent health = player.getComponent(HealthComponent.class);
-
             if (player.getComponent(GodModeComponent.class) != null) {
-                health.currentHealth = health.maxHealth; // Keep full health
+                health.currentHealth = health.maxHealth;
             }
-
             if (health != null && !health.isAlive()) {
-
                 ReviveComponent revive = player.getComponent(ReviveComponent.class);
                 if (revive != null && revive.lives > 0) {
-                    // 1. Consume Life
                     revive.lives--;
-
-                    // 2. Heal
                     health.currentHealth = health.maxHealth * 0.5f;
-
-                    // 3. Spawn Visuals
-                    spawnReviveEffect(); // (Assuming you extracted this to a helper or kept it inline)
-
-                    // 4. FIX: Remove from Inventory/Stats Screen
+                    spawnReviveEffect();
                     playerBuild.removeUpgradeStack("Second Chance");
-
-                    System.out.println(">>> REVIVED! Lives left: " + revive.lives + " <<<");
-
-                    // Cleanup Component if empty
-                    if (revive.lives <= 0) {
-                        player.remove(ReviveComponent.class);
-                    }
-
-                    return; // Stop Game Over
+                    if (revive.lives <= 0) player.remove(ReviveComponent.class);
+                    return;
                 }
-                // --------------------
-
                 PlayerComponent pc = player.getComponent(PlayerComponent.class);
                 EventManager.getInstance().publish(new GameOverEvent(gameTime, pc.level));
                 isGameOver = true;
@@ -264,18 +262,35 @@ public class GameScreen implements Screen {
         }
     }
 
+    private void drawHUD() {
+        PlayerComponent pc = player.getComponent(PlayerComponent.class);
+        if (pc == null) return;
+
+        uiBatch.setProjectionMatrix(camera.combined);
+        uiBatch.begin();
+
+        // --- ONLY DRAW TIMER (Level/XP handled by UISystem now) ---
+
+        int mins = (int)(gameTime / 60);
+        int secs = (int)(gameTime % 60);
+        String timeStr = String.format("%02d:%02d", mins, secs);
+
+        // Draw Timer Top Center
+        hudFont.setColor(Color.GOLD);
+        // Calculate rough center position
+        hudFont.draw(uiBatch, timeStr, Constants.SCREEN_WIDTH / 2f - 30, Constants.SCREEN_HEIGHT - 20);
+
+        uiBatch.end();
+    }
+
+    // ... (spawnReviveEffect and drawBackground remain the same) ...
     private void spawnReviveEffect() {
         Entity effect = new Entity();
         PositionComponent playerPos = player.getComponent(PositionComponent.class);
         effect.add(new PositionComponent(playerPos.position.x, playerPos.position.y));
-
         TextureManager tm = TextureManager.getInstance();
-        if (tm.hasTexture("effect_revive")) {
-            effect.add(new VisualComponent(300f, 300f, tm.getTexture("effect_revive")));
-        } else {
-            effect.add(new VisualComponent(300f, 300f, Color.GOLD));
-        }
-
+        if (tm.hasTexture("effect_revive")) effect.add(new VisualComponent(300f, 300f, tm.getTexture("effect_revive")));
+        else effect.add(new VisualComponent(300f, 300f, Color.GOLD));
         effect.add(new LifetimeComponent(1.0f));
         engine.addEntity(effect);
     }
@@ -300,18 +315,33 @@ public class GameScreen implements Screen {
     public void renderPaused(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // 1. Draw Background
         drawBackground();
+
+        // 2. Draw Border (The new Abyss Texture)
+        mainBatch.setProjectionMatrix(camera.combined);
+        mainBatch.begin();
+        if (borderPatch != null) {
+            borderPatch.draw(mainBatch,
+                Constants.ARENA_OFFSET_X - 16,
+                Constants.ARENA_OFFSET_Y - 16,
+                Constants.ARENA_WIDTH + 32,
+                Constants.ARENA_HEIGHT + 32
+            );
+        }
+        mainBatch.end();
+
+        // 3. Draw Frozen Entities
         engine.getSystem(RenderSystem.class).update(0);
-        // We can draw debugging circles even while paused
         engine.getSystem(DebugRenderSystem.class).update(0);
         engine.getSystem(UISystem.class).update(0);
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(Color.CYAN);
-        shapeRenderer.rect(Constants.ARENA_OFFSET_X, Constants.ARENA_OFFSET_Y, Constants.ARENA_WIDTH, Constants.ARENA_HEIGHT);
-        shapeRenderer.end();
+
+        // 4. Draw HUD Text
+        drawHUD();
     }
 
+    // ... (showUpgradeScreen, applyUpgrade, resize, pause, resume, hide remain the same) ...
     private void showUpgradeScreen() {
         java.util.List<Upgrade> upgrades = upgradePool.getRandomUpgrades(playerBuild, spellManager, 3);
         if (!upgrades.isEmpty()) {
@@ -329,21 +359,28 @@ public class GameScreen implements Screen {
         viewport.update(width, height, true);
     }
 
-    @Override
-    public void pause() { isPaused = true; }
-    @Override
-    public void resume() { isPaused = false; }
-    @Override
-    public void hide() { }
+    @Override public void pause() { isPaused = true; }
+    @Override public void resume() { isPaused = false; }
+    @Override public void hide() { }
+
     @Override
     public void dispose() {
         shapeRenderer.dispose();
         mainBatch.dispose();
         damageBatch.dispose();
+
+        // --- NEW: Dispose UI Batch and Font ---
+        uiBatch.dispose();
+        if (hudFont != null) hudFont.dispose();
+        // --------------------------------------
+
         TextureManager.getInstance().dispose();
         SoundManager.getInstance().dispose();
+        SoundManager.getInstance().stopMusic();
+
         if (engine.getSystem(UISystem.class) != null) engine.getSystem(UISystem.class).dispose();
         if (engine.getSystem(DamageIndicatorSystem.class) != null) engine.getSystem(DamageIndicatorSystem.class).dispose();
+
         EventManager.getInstance().clear();
     }
 }

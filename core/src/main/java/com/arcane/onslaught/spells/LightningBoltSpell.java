@@ -19,7 +19,7 @@ public class LightningBoltSpell extends Spell {
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
         if (baseDirection.isZero()) baseDirection.set(1, 0);
 
@@ -40,11 +40,15 @@ public class LightningBoltSpell extends Spell {
             projectile.add(new VisualComponent(projectileSize, projectileSize,
                 TextureManager.getInstance().getTexture("lightning")));
 
-            // Note: Spell name string must match what UpgradeHelper expects ("Lightning Bolt")
-            projectile.add(new ProjectileComponent(damage, 3f, "lightning"));
+            // CRIT
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 3f, "lightning"));
 
             // Chain logic
-            projectile.add(new ChainComponent(chainCount, chainRange, damage * 0.7f));
+            projectile.add(new ChainComponent(chainCount, chainRange, finalDamage * 0.7f));
+
+            // Lightning doesn't typically "pierce" in a straight line because it chains,
+            // but we can add it if you really want. Usually redundant with ChainComponent.
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
             engine.addEntity(projectile);

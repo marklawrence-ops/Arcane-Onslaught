@@ -8,34 +8,37 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 public class VisualComponent implements Component {
+    // ... (Existing fields: width, height, color, animation, etc.) ...
     public float width;
     public float height;
     public Color color = Color.WHITE;
-
-    // Animation Support
     public Animation<TextureRegion> animation;
     public float stateTime = 0f;
     public boolean isLooping = true;
-
-    // Fallback for non-animated objects
     public TextureRegion staticRegion;
     public Texture texture;
     public Sprite sprite;
     public boolean useSprite = false;
-
-    // --- NEW: Z-Index for Layering ---
     public int zIndex = 0;
+    public boolean isBobbing = false;
+    public float bobTimer = 0f;
+    public float bobHeight = 3f;
+    public float bobSpeed = 12f;
 
-    // Constructor for Animations
+    // --- NEW: FADE IN SUPPORT ---
+    public boolean isFadingIn = false;
+    public float fadeInTimer = 0f;
+    public float fadeInDuration = 0.5f; // Default 0.5 seconds
+    // ----------------------------
+
     public VisualComponent(float width, float height, Animation<TextureRegion> animation) {
         this.width = width;
         this.height = height;
         this.animation = animation;
         this.stateTime = 0f;
-        this.zIndex = 10; // Default for animated entities (Player/Enemies)
+        this.zIndex = 10;
     }
 
-    // Constructor for Sprites (Textures)
     public VisualComponent(float width, float height, Texture texture) {
         this(width, height, texture, Color.WHITE);
     }
@@ -43,7 +46,6 @@ public class VisualComponent implements Component {
     public VisualComponent(float width, float height, Texture texture, Color tint) {
         this.width = width;
         this.height = height;
-
         if (texture == null) {
             this.color = tint != null ? tint : Color.MAGENTA;
             this.useSprite = false;
@@ -55,10 +57,9 @@ public class VisualComponent implements Component {
             this.useSprite = true;
             this.color = tint != null ? tint : Color.WHITE;
         }
-        this.zIndex = 10; // Default layer
+        this.zIndex = 10;
     }
 
-    // Constructor for colored rectangles
     public VisualComponent(float width, float height, Color color) {
         this.width = width;
         this.height = height;

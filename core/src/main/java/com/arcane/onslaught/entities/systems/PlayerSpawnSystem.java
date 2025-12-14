@@ -1,5 +1,6 @@
 package com.arcane.onslaught.entities.systems;
 
+import com.arcane.onslaught.utils.SoundManager;
 import com.badlogic.ashley.core.*;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.graphics.Color;
@@ -180,6 +181,7 @@ public class PlayerSpawnSystem extends IteratingSystem {
             beamEntity.add(new VisualComponent(0f, 600f, Color.WHITE));
         }
 
+        SoundManager.getInstance().play("spawn_breach", 0.9f);
         getEngine().addEntity(beamEntity);
     }
 }

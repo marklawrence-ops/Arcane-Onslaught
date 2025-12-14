@@ -5,6 +5,7 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.arcane.onslaught.entities.components.CollisionComponent;
+import com.arcane.onslaught.entities.components.VisualComponent; // Import this
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +27,6 @@ public class EnemyFactory {
         enemyTypes.put("brute", new BruteEnemy());
         enemyTypes.put("ghost", new GhostEnemy());
         enemyTypes.put("elite", new EliteEnemy());
-        // --- NEW: Register Slime ---
         enemyTypes.put("slime", new SlimeEnemy());
     }
 
@@ -34,14 +34,23 @@ public class EnemyFactory {
         EnemyType type = enemyTypes.get(typeId);
         if (type != null) {
             EnemyType scaledType = createScaledInstance(typeId, difficultyMultiplier);
+
+            // 1. Create the Entity
             Entity enemy = scaledType.spawn(engine, position);
+
+            // --- NEW: Enable Fade In Effect ---
+            VisualComponent vis = enemy.getComponent(VisualComponent.class);
+            if (vis != null) {
+                vis.isFadingIn = true;
+                vis.fadeInDuration = 0.6f; // Fade in over 0.6 seconds
+            }
+            // ----------------------------------
 
             float radius = 12f;
             switch (typeId) {
                 case "swarm": radius = 6f; break;
                 case "imp": radius = 10f; break;
                 case "runner": radius = 10f; break;
-                // --- NEW: Slime Hitbox ---
                 case "slime": radius = 10f; break;
                 case "zombie": radius = 12f; break;
                 case "ghost": radius = 12f; break;
@@ -63,15 +72,13 @@ public class EnemyFactory {
 
     private String selectEnemyType(float difficulty) {
         if (difficulty < 1.5f) {
-            // Early Game: Add Slimes
             int choice = MathUtils.random(10);
             if (choice < 4) return "zombie";
-            if (choice < 7) return "slime"; // 30% chance for Slime
+            if (choice < 7) return "slime";
             if (choice < 9) return "imp";
             return "runner";
         } else if (difficulty < 2.5f) {
-            // Mid Game
-            int choice = MathUtils.random(12); // Increased range
+            int choice = MathUtils.random(12);
             if (choice < 3) return "zombie";
             if (choice < 5) return "slime";
             if (choice < 7) return "imp";
@@ -79,7 +86,6 @@ public class EnemyFactory {
             if (choice < 10) return "brute";
             return "swarm";
         } else if (difficulty < 4.0f) {
-            // Late Game
             int choice = MathUtils.random(10);
             if (choice < 2) return "zombie";
             if (choice < 3) return "imp";
@@ -89,7 +95,6 @@ public class EnemyFactory {
             if (choice < 9) return "swarm";
             return "elite";
         } else {
-            // End Game
             int choice = MathUtils.random(10);
             if (choice < 1) return "zombie";
             if (choice < 2) return "imp";

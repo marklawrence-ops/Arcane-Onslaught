@@ -15,16 +15,16 @@ public class PoisonDartSpell extends Spell {
     private float poisonDuration = 4f;
 
     public PoisonDartSpell() {
-        super("Poison Dart", 0.6f, 5f); // Low base damage, high DOT
+        super("Poison Dart", 0.6f, 5f);
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
         if (baseDirection.isZero()) baseDirection.set(1, 0);
 
         int count = UpgradeHelper.getProjectileCount(playerBuild);
-        float spread = 12f; // Slightly tighter spread for precision
+        float spread = 12f;
 
         for (int i = 0; i < count; i++) {
             float angleOffset = spread * (i - (count - 1) / 2f);
@@ -40,9 +40,14 @@ public class PoisonDartSpell extends Spell {
             projectile.add(new VisualComponent(projectileSize, projectileSize,
                 TextureManager.getInstance().getTexture("poison")));
 
-            projectile.add(new ProjectileComponent(damage, 4f, "poison"));
+            // CRIT & PIERCE
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 4f, "poison"));
 
-            // Poison Component
+            if (playerBuild.hasTag("piercing")) {
+                projectile.add(new PierceComponent(1));
+            }
+
             projectile.add(new PoisonComponent(poisonDps, poisonDuration));
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);

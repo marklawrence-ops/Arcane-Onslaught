@@ -1,5 +1,6 @@
 package com.arcane.onslaught.screens;
 
+import com.arcane.onslaught.utils.SoundManager;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.gdx.Game;
@@ -56,6 +57,8 @@ public class CheatMenuScreen implements Screen {
     private final int ITEMS_PER_PAGE = COLS * ROWS;
 
     private Vector3 touchPoint;
+
+    private CheatButton lastHoveredButton = null;
 
     private class CheatButton {
         String text;
@@ -291,6 +294,8 @@ public class CheatMenuScreen implements Screen {
         boolean isTouched = Gdx.input.justTouched();
         camera.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
 
+        CheatButton currentHover = null;
+
         // Check All Active Buttons
         List<CheatButton> activeButtons = new ArrayList<>(fixedButtons);
         activeButtons.add(prevBtn);
@@ -300,15 +305,19 @@ public class CheatMenuScreen implements Screen {
         for (CheatButton btn : activeButtons) {
             if (btn.bounds.contains(touchPoint.x, touchPoint.y)) {
                 // Hover Logic
+                currentHover = btn;
                 btn.color = btn.color.cpy().add(0.1f, 0.1f, 0.1f, 0f); // Lighten
 
                 // Tooltip Logic
                 if (btn.userData instanceof Upgrade) {
                     hoverDescription = ((Upgrade) btn.userData).getDescription();
+                    if (lastHoveredButton != btn) {
+                    }
                 }
 
                 // Click Logic
                 if (isTouched) {
+                    SoundManager.getInstance().play("ui_click");
                     btn.action.run();
                 }
             } else {
@@ -324,6 +333,7 @@ public class CheatMenuScreen implements Screen {
                     btn.color = new Color(0.2f, 0.2f, 0.2f, 1f); // Standard Btn
                 }
             }
+            lastHoveredButton = currentHover;
         }
     }
 

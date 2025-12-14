@@ -18,8 +18,9 @@ import com.arcane.onslaught.entities.components.*;
 import com.arcane.onslaught.spells.Spell;
 import com.arcane.onslaught.spells.SpellManager;
 import com.arcane.onslaught.upgrades.PlayerBuild;
-import com.arcane.onslaught.upgrades.Upgrade; // Import Upgrade
+import com.arcane.onslaught.upgrades.Upgrade;
 import com.arcane.onslaught.utils.Constants;
+import com.arcane.onslaught.utils.FontManager; // Import
 
 import java.util.Map;
 
@@ -30,9 +31,12 @@ public class StatsScreen implements Screen {
     private Viewport viewport;
     private SpriteBatch batch;
     private ShapeRenderer shapeRenderer;
+
+    // Custom Fonts
     private BitmapFont titleFont;
     private BitmapFont headerFont;
     private BitmapFont font;
+
     private GlyphLayout layout;
 
     private Entity player;
@@ -51,25 +55,23 @@ public class StatsScreen implements Screen {
     public void show() {
         camera = new OrthographicCamera();
         viewport = new FitViewport(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, camera);
+
+        // --- FIX: Center Camera ---
         viewport.apply();
         camera.position.set(Constants.SCREEN_WIDTH / 2f, Constants.SCREEN_HEIGHT / 2f, 0);
         camera.update();
+        // --------------------------
 
         batch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
         layout = new GlyphLayout();
 
-        titleFont = new BitmapFont();
-        titleFont.getData().setScale(3f);
-        titleFont.setColor(Color.GOLD);
-
-        headerFont = new BitmapFont();
-        headerFont.getData().setScale(1.8f);
-        headerFont.setColor(Color.CYAN);
-
-        font = new BitmapFont();
-        font.getData().setScale(1.2f);
-        font.setColor(Color.WHITE);
+        // --- FONT SETUP ---
+        FontManager.getInstance().load();
+        titleFont = FontManager.getInstance().generateFont(60, Color.GOLD);
+        headerFont = FontManager.getInstance().generateFont(32, Color.CYAN);
+        font = FontManager.getInstance().generateFont(20, Color.WHITE);
+        // ------------------
     }
 
     @Override
@@ -88,11 +90,8 @@ public class StatsScreen implements Screen {
         }
 
         camera.update();
-
-        // 1. Background
         gameScreen.renderPaused(delta);
 
-        // 2. Overlay
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.setProjectionMatrix(camera.combined);
@@ -101,7 +100,6 @@ public class StatsScreen implements Screen {
         shapeRenderer.rect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT);
         shapeRenderer.end();
 
-        // 3. Border & Lines
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(Color.CYAN);
         shapeRenderer.rect(50, 50, Constants.SCREEN_WIDTH - 100, Constants.SCREEN_HEIGHT - 100);
@@ -113,12 +111,11 @@ public class StatsScreen implements Screen {
         shapeRenderer.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
 
-        // 4. Text Data
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
 
         layout.setText(titleFont, "PLAYER STATS");
-        titleFont.draw(batch, "PLAYER STATS", Constants.SCREEN_WIDTH / 2f - layout.width / 2, Constants.SCREEN_HEIGHT - 60f);
+        titleFont.draw(batch, "PLAYER STATS", (Constants.SCREEN_WIDTH - layout.width)/2, Constants.SCREEN_HEIGHT - 60f);
 
         float startY = Constants.SCREEN_HEIGHT - 150f;
         float lineHeight = 30f;
@@ -160,7 +157,7 @@ public class StatsScreen implements Screen {
             y -= 50f;
         }
 
-        // --- COL 3: UPGRADES (Color Coded) ---
+        // --- COL 3: UPGRADES ---
         headerFont.draw(batch, "UPGRADES", col2 + 40f, startY);
         y = startY - 50f;
 
@@ -168,13 +165,9 @@ public class StatsScreen implements Screen {
         for (Map.Entry<String, Integer> entry : stacks.entrySet()) {
             String name = entry.getKey();
             int count = entry.getValue();
-
             if (name.startsWith("Unlock")) continue;
 
-            // --- FIND RARITY COLOR ---
-            Color rarityColor = Color.WHITE; // Default
-
-            // Search the upgrade list to find the object matching this name
+            Color rarityColor = Color.WHITE;
             for (Upgrade u : playerBuild.getUpgrades()) {
                 if (u.getName().equals(name)) {
                     rarityColor = getRarityColor(u.getRarity());
@@ -182,19 +175,15 @@ public class StatsScreen implements Screen {
                 }
             }
 
-            // Draw Name in Rarity Color
             font.setColor(rarityColor);
             font.draw(batch, name, col2 + 40f, y);
-
-            // Draw Count in Green/Gray
             font.setColor(Color.LIGHT_GRAY);
             font.draw(batch, "x" + count, col2 + 250f, y);
-
             y -= 30f;
         }
 
         font.setColor(Color.GRAY);
-        font.draw(batch, "[TAB] or [ESC] to Resume", Constants.SCREEN_WIDTH / 2f - 80f, 40f);
+        font.draw(batch, "[TAB] or [ESC] to Resume", (Constants.SCREEN_WIDTH)/2f - 100f, 40f);
 
         batch.end();
     }
@@ -203,38 +192,36 @@ public class StatsScreen implements Screen {
         font.setColor(Color.LIGHT_GRAY);
         font.draw(b, label + ":", x, y);
         font.setColor(Color.WHITE);
-        font.draw(b, value, x + 120f, y);
+        font.draw(b, value, x + 140f, y);
     }
 
-    // --- RARITY COLORS ---
     private Color getRarityColor(Upgrade.UpgradeRarity rarity) {
         switch (rarity) {
-            case COMMON: return new Color(0.8f, 0.8f, 0.8f, 1f); // White/Gray
-            case UNCOMMON: return new Color(0.2f, 1f, 0.2f, 1f); // Green
-            case RARE: return new Color(0.3f, 0.6f, 1f, 1f);     // Blue
-            case EPIC: return new Color(0.8f, 0.3f, 1f, 1f);     // Purple
+            case COMMON: return new Color(0.8f, 0.8f, 0.8f, 1f);
+            case UNCOMMON: return new Color(0.2f, 1f, 0.2f, 1f);
+            case RARE: return new Color(0.3f, 0.6f, 1f, 1f);
+            case EPIC: return new Color(0.8f, 0.3f, 1f, 1f);
             default: return Color.WHITE;
         }
     }
 
     @Override
     public void resize(int width, int height) {
+        // --- FIX: Ensure centered resize ---
         viewport.update(width, height, true);
         gameScreen.resize(width, height);
     }
 
-    @Override
-    public void pause() {}
-    @Override
-    public void resume() {}
-    @Override
-    public void hide() {}
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
+
     @Override
     public void dispose() {
         batch.dispose();
         shapeRenderer.dispose();
-        titleFont.dispose();
-        headerFont.dispose();
-        font.dispose();
+        if(titleFont!=null) titleFont.dispose();
+        if(headerFont!=null) headerFont.dispose();
+        if(font!=null) font.dispose();
     }
 }

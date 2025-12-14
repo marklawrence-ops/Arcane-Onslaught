@@ -9,9 +9,6 @@ import com.arcane.onslaught.spells.Spell;
 import com.arcane.onslaught.spells.SpellManager;
 import com.arcane.onslaught.upgrades.PlayerBuild;
 
-/**
- * Handles automatic spell casting with multiple spells
- */
 public class SpellCastSystem extends IteratingSystem {
     private ComponentMapper<PositionComponent> pm = ComponentMapper.getFor(PositionComponent.class);
     private SpellManager spellManager;
@@ -25,28 +22,23 @@ public class SpellCastSystem extends IteratingSystem {
 
     @Override
     public void update(float deltaTime) {
-        // Update all spell cooldowns
         spellManager.updateAllSpells(deltaTime);
-
-        // Then cast spells
         super.update(deltaTime);
     }
 
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
         PositionComponent pos = pm.get(entity);
-
-        // Find nearest enemy
         Entity nearestEnemy = findNearestEnemy(pos.position);
 
         if (nearestEnemy != null) {
             PositionComponent enemyPos = nearestEnemy.getComponent(PositionComponent.class);
 
-            // Cast all ready spells
             for (Spell spell : spellManager.getActiveSpells()) {
                 if (spell.canCast()) {
                     SoundManager.getInstance().play("cast", 1.0f + (float)Math.random() * 0.2f);
-                    spell.cast(getEngine(), pos.position, enemyPos.position, playerBuild);
+                    // --- PASS 'entity' (Caster) HERE ---
+                    spell.cast(getEngine(), entity, pos.position, enemyPos.position, playerBuild);
                     spell.resetCooldown();
                 }
             }
@@ -56,7 +48,6 @@ public class SpellCastSystem extends IteratingSystem {
     private Entity findNearestEnemy(Vector2 playerPos) {
         Entity nearest = null;
         float minDist = Float.MAX_VALUE;
-
         Family enemyFamily = Family.all(EnemyComponent.class, PositionComponent.class, HealthComponent.class).get();
 
         for (Entity entity : getEngine().getEntitiesFor(enemyFamily)) {
@@ -70,11 +61,8 @@ public class SpellCastSystem extends IteratingSystem {
                 nearest = entity;
             }
         }
-
         return nearest;
     }
 
-    public SpellManager getSpellManager() {
-        return spellManager;
-    }
+    public SpellManager getSpellManager() { return spellManager; }
 }

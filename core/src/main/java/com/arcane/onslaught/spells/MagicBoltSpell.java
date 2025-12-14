@@ -17,7 +17,7 @@ public class MagicBoltSpell extends Spell {
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
         if (baseDirection.isZero()) baseDirection.set(1, 0);
 
@@ -38,7 +38,13 @@ public class MagicBoltSpell extends Spell {
             projectile.add(new VisualComponent(projectileSize, projectileSize,
                 TextureManager.getInstance().getTexture("magic_bolt")));
 
-            projectile.add(new ProjectileComponent(damage, 5f, "magic_bolt"));
+            // CRIT & PIERCE
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 5f, "magic_bolt"));
+
+            if (playerBuild.hasTag("piercing")) {
+                projectile.add(new PierceComponent(1));
+            }
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
             engine.addEntity(projectile);

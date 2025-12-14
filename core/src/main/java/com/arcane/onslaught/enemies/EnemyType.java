@@ -102,7 +102,7 @@ class ImpEnemy extends EnemyType {
             140f,
             18f,
             10f,
-            new Color(1f, 0.3f, 0.3f, 1f)
+            new Color(0.8f, 0.3f, 2f, 1f)
         );
     }
 }

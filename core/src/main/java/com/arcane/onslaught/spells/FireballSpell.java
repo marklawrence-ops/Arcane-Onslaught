@@ -18,15 +18,14 @@ public class FireballSpell extends Spell {
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
-        if (baseDirection.isZero()) baseDirection.set(1, 0); // Safety check
+        if (baseDirection.isZero()) baseDirection.set(1, 0);
 
         int count = UpgradeHelper.getProjectileCount(playerBuild);
-        float spread = 15f; // Degrees between shots
+        float spread = 15f;
 
         for (int i = 0; i < count; i++) {
-            // Calculate angle offset to center the spread
             float angleOffset = spread * (i - (count - 1) / 2f);
             Vector2 direction = baseDirection.cpy().rotateDeg(angleOffset);
 
@@ -40,8 +39,16 @@ public class FireballSpell extends Spell {
             projectile.add(new VisualComponent(projectileSize, projectileSize,
                 TextureManager.getInstance().getTexture("fireball")));
 
-            projectile.add(new ProjectileComponent(damage, 5f, "fireball"));
-            projectile.add(new ExplosiveComponent(explosionRadius, damage * 0.5f));
+            // CRIT & PIERCE
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 5f, "fireball"));
+
+            // Fireballs usually explode on impact, but if you have pierce, they might pass through!
+            if (playerBuild.hasTag("piercing")) {
+                projectile.add(new PierceComponent(1));
+            }
+
+            projectile.add(new ExplosiveComponent(explosionRadius, finalDamage * 0.5f));
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
             engine.addEntity(projectile);

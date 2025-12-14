@@ -53,6 +53,9 @@ public class TextureManager {
         loadTexture("vfx_steam", "sprites/vfx_steam.png");
         loadTexture("vfx_ice_shatter", "sprites/vfx_ice_shatter.png");
         loadTexture("vfx_muzzle_flash", "sprites/vfx_muzzle_flash.png");
+        //textures.put("border", new Texture(Gdx.files.internal("textures/border.png")));
+        //textures.put("border", new Texture(Gdx.files.internal("textures/border_abyss.png")));
+        textures.put("border", new Texture(Gdx.files.internal("textures/border_abyss_hd.png")));
 
         // Player
         loadTexture("player", "sprites/player/player.png");

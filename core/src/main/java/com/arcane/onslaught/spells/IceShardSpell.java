@@ -19,7 +19,7 @@ public class IceShardSpell extends Spell {
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
         if (baseDirection.isZero()) baseDirection.set(1, 0);
 
@@ -40,7 +40,15 @@ public class IceShardSpell extends Spell {
             projectile.add(new VisualComponent(projectileSize, projectileSize,
                 TextureManager.getInstance().getTexture("ice_shard")));
 
-            projectile.add(new ProjectileComponent(damage, 5f, "ice_shard"));
+            // CRIT & PIERCE
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 5f, "ice_shard"));
+
+            // Ice naturally pierces 1 enemy, upgrades add more
+            int basePierce = 1;
+            int extraPierce = playerBuild.hasTag("piercing") ? 1 : 0;
+            projectile.add(new PierceComponent(basePierce + extraPierce));
+
             projectile.add(new SlowComponent(slowAmount, slowDuration));
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);

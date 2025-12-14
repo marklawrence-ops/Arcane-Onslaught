@@ -11,23 +11,20 @@ import com.arcane.onslaught.utils.TextureManager;
 public class ArcaneMissilesSpell extends Spell {
     private float projectileSpeed = 320f;
     private float projectileSize = 14f;
-    private int baseMissileCount = 3; // Renamed to clarify
-    private int pierceCount = 2;
+    private int baseMissileCount = 3;
+    private int basePierceCount = 2;
 
     public ArcaneMissilesSpell() {
         super("Arcane Missiles", 2.0f, 8f);
     }
 
     @Override
-    public void cast(Engine engine, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
+    public void cast(Engine engine, Entity caster, Vector2 playerPos, Vector2 targetPos, PlayerBuild playerBuild) {
         Vector2 baseDirection = new Vector2(targetPos).sub(playerPos).nor();
         if (baseDirection.isZero()) baseDirection.set(1, 0);
 
-        // Base 3 + Multishot Bonus (e.g., +1 per upgrade)
-        // Note: getProjectileCount returns (1 + stacks). Since we start at 3, we add (stacks).
         int bonus = UpgradeHelper.getProjectileCount(playerBuild) - 1;
         int totalMissiles = baseMissileCount + bonus;
-
         float spread = 15f;
 
         for (int i = 0; i < totalMissiles; i++) {
@@ -42,10 +39,15 @@ public class ArcaneMissilesSpell extends Spell {
             projectile.add(vel);
 
             projectile.add(new VisualComponent(projectileSize, projectileSize,
-                TextureManager.getInstance().getTexture("arcane_missile"))); // Ensure this matches TextureManager key
+                TextureManager.getInstance().getTexture("arcane_missile")));
 
-            projectile.add(new ProjectileComponent(damage, 5f, "arcane_missile"));
-            projectile.add(new PierceComponent(pierceCount));
+            // CRIT
+            float finalDamage = calculateDamage(caster);
+            projectile.add(new ProjectileComponent(finalDamage, 5f, "arcane_missile"));
+
+            // PIERCE (Base + Upgrade)
+            int extraPierce = playerBuild.hasTag("piercing") ? 1 : 0;
+            projectile.add(new PierceComponent(basePierceCount + extraPierce));
 
             UpgradeHelper.applyProjectileUpgrades(projectile, playerBuild, this.name);
             engine.addEntity(projectile);
