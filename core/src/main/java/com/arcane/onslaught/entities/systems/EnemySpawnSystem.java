@@ -81,7 +81,7 @@ public class EnemySpawnSystem extends EntitySystem {
         spawnInterval = Constants.ENEMY_SPAWN_INTERVAL / (1f + (difficulty - 1f) * 0.4f);
 
         // --- 2. NEW: Player Level Scaling (Level 30+) ---
-        if (currentPlayerLevel >= 30) {
+        if (currentPlayerLevel >= 20) {
             // Calculate how many levels past 30 we are
             int levelsPast = currentPlayerLevel - 30;
 
@@ -114,7 +114,7 @@ public class EnemySpawnSystem extends EntitySystem {
         factory.spawnBoss(getEngine(), spawnPos, level);
 
         // 2. Secondary Boss (Level 40+)
-        if (level >= 40) {
+        if (level >= 30) {
             Vector2 secondPos = new Vector2(spawnPos).add(150, 0);
             factory.spawnBoss(getEngine(), secondPos, level);
             System.out.println("⚠️ DOUBLE BOSS EVENT!");
