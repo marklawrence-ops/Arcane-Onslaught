@@ -107,9 +107,9 @@ public class AlmanacScreen implements Screen {
 
         // Generate Fonts
         BitmapFont titleFont = generateFont("fonts/DungeonFont.ttf", 60, Color.GOLD);
-        BitmapFont headerFont = generateFont("fonts/DungeonFont.ttf", 32, Color.CYAN);
-        BitmapFont textFont = generateFont("fonts/DungeonFont.ttf", 24, Color.WHITE);
-        BitmapFont loreFont = generateFont("fonts/DungeonFont.ttf", 20, new Color(0.7f, 0.7f, 0.8f, 1f));
+        BitmapFont headerFont = generateFont("fonts/Silver.ttf", 40, Color.CYAN);
+        BitmapFont textFont = generateFont("fonts/Silver.ttf", 32, Color.WHITE);
+        BitmapFont loreFont = generateFont("fonts/Silver.ttf", 28, new Color(0.7f, 0.7f, 0.8f, 1f));
 
         skin.add("title", new Label.LabelStyle(titleFont, Color.GOLD));
         skin.add("header", new Label.LabelStyle(headerFont, Color.CYAN));

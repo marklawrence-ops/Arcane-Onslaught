@@ -85,7 +85,7 @@ public class GameScreen implements Screen {
         damageBatch = new SpriteBatch();
         uiBatch = new SpriteBatch();
 
-        hudFont = FontManager.getInstance().generateFont(24, Color.WHITE);
+        hudFont = FontManager.getInstance().generateFont(32, Color.WHITE);
 
         engine = new Engine();
         spellManager = new SpellManager();

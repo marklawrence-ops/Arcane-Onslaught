@@ -168,7 +168,7 @@ public class UISystem extends EntitySystem {
         layout.setText(barFont, hpStr);
 
         float hpTextX = BAR_X + (BAR_WIDTH - layout.width) / 2;
-        float hpTextY = HP_BAR_Y + (HP_BAR_HEIGHT + layout.height) / 2 - 2; // -2 visual adjust
+        float hpTextY = HP_BAR_Y + (HP_BAR_HEIGHT + layout.height) / 2 + 2; // +2 visual adjust
 
         // Drop Shadow for text readability
         barFont.setColor(0f, 0f, 0f, 0.5f);

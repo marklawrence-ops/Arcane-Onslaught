@@ -5,12 +5,14 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -69,14 +71,41 @@ public class UpgradeScreen implements Screen {
         touchPoint = new Vector3();
 
         FontManager.getInstance().load();
-        titleFont = FontManager.getInstance().generateFont(72, Color.GOLD);
-        font = FontManager.getInstance().generateFont(24, Color.WHITE); // Slightly smaller for 5 cards
-        smallFont = FontManager.getInstance().generateFont(20, Color.LIGHT_GRAY);
+        titleFont = generateFont("fonts/DungeonFont.ttf", 72, Color.GOLD);
+        font = FontManager.getInstance().generateFont(36, Color.WHITE); // Slightly smaller for 5 cards
+        smallFont = FontManager.getInstance().generateFont(28, Color.LIGHT_GRAY);
 
         cardBounds = new Rectangle[MAX_CARDS];
         for(int i=0; i<MAX_CARDS; i++) cardBounds[i] = new Rectangle();
 
         SoundManager.getInstance().play("levelup", 1.0f);
+    }
+
+    private BitmapFont generateFont(String path, int size, Color color) {
+        FileHandle file = Gdx.files.internal(path);
+        BitmapFont font;
+        if (file.exists()) {
+            try {
+                FreeTypeFontGenerator generator = new FreeTypeFontGenerator(file);
+                FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+                parameter.size = size;
+                parameter.borderWidth = 2;
+                parameter.borderColor = Color.BLACK;
+                parameter.shadowOffsetX = 3;
+                parameter.shadowOffsetY = 3;
+                parameter.shadowColor = new Color(0, 0, 0, 0.5f);
+                font = generator.generateFont(parameter);
+                generator.dispose();
+            } catch (Exception e) {
+                font = new BitmapFont();
+                font.getData().setScale(size / 16f);
+            }
+        } else {
+            font = new BitmapFont();
+            font.getData().setScale(size / 16f);
+        }
+        font.setColor(color);
+        return font;
     }
 
     @Override

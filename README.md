@@ -13,6 +13,7 @@ Arcane Onslaught is a 2D top-down auto-attack survival game where the player con
 
 # External Font Used
 - DungeonFont by vrtxrry (https://vrtxrry.itch.io/dungeonfont)
+- Silver Font by PoppyWorks (https://poppyworks.itch.io/silver)
 
 ## Platforms
 

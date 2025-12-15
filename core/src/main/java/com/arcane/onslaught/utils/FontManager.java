@@ -24,12 +24,12 @@ public class FontManager {
     public void load() {
         if (isLoaded) return;
 
-        FileHandle fontFile = Gdx.files.internal("fonts/DungeonFont.ttf");
+        FileHandle fontFile = Gdx.files.internal("fonts/Silver.ttf");
         if (fontFile.exists()) {
             generator = new FreeTypeFontGenerator(fontFile);
             isLoaded = true;
         } else {
-            System.out.println("Font file not found: fonts/DungeonFont.ttf");
+            System.out.println("Font file not found: fonts/Silver.ttf");
         }
     }
 

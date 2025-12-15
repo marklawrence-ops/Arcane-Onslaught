@@ -95,8 +95,8 @@ public class MenuScreen implements Screen {
 
         titleFont = generateFont("fonts/DungeonFont.ttf", 80, new Color(0.3f, 0.8f, 1f, 1f));
         subtitleFont = generateFont("fonts/DungeonFont.ttf", 40, new Color(1f, 0.5f, 1f, 1f));
-        font = generateFont("fonts/DungeonFont.ttf", 40, Color.WHITE);
-        smallFont = generateFont("fonts/DungeonFont.ttf", 24, Color.GOLD);
+        font = generateFont("fonts/Silver.ttf", 40, Color.WHITE);
+        smallFont = generateFont("fonts/Silver.ttf", 24, Color.GOLD);
 
         float centerX = Constants.SCREEN_WIDTH / 2f;
         float centerY = Constants.SCREEN_HEIGHT / 2f;

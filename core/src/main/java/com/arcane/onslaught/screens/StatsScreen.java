@@ -5,12 +5,14 @@ import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -68,10 +70,37 @@ public class StatsScreen implements Screen {
 
         // --- FONT SETUP ---
         FontManager.getInstance().load();
-        titleFont = FontManager.getInstance().generateFont(60, Color.GOLD);
-        headerFont = FontManager.getInstance().generateFont(32, Color.CYAN);
-        font = FontManager.getInstance().generateFont(20, Color.WHITE);
+        titleFont = generateFont("fonts/DungeonFont.ttf",60, Color.GOLD);
+        headerFont = FontManager.getInstance().generateFont(38, Color.CYAN);
+        font = FontManager.getInstance().generateFont(28, Color.WHITE);
         // ------------------
+    }
+
+    private BitmapFont generateFont(String path, int size, Color color) {
+        FileHandle file = Gdx.files.internal(path);
+        BitmapFont font;
+        if (file.exists()) {
+            try {
+                FreeTypeFontGenerator generator = new FreeTypeFontGenerator(file);
+                FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+                parameter.size = size;
+                parameter.borderWidth = 2;
+                parameter.borderColor = Color.BLACK;
+                parameter.shadowOffsetX = 3;
+                parameter.shadowOffsetY = 3;
+                parameter.shadowColor = new Color(0, 0, 0, 0.5f);
+                font = generator.generateFont(parameter);
+                generator.dispose();
+            } catch (Exception e) {
+                font = new BitmapFont();
+                font.getData().setScale(size / 16f);
+            }
+        } else {
+            font = new BitmapFont();
+            font.getData().setScale(size / 16f);
+        }
+        font.setColor(color);
+        return font;
     }
 
     @Override
